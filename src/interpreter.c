@@ -80,20 +80,21 @@ void run_ast(ASTNode **nodes, int count)
         if (n->type == NODE_SET)
         {
             Value v;
-            // Case 1: String literal
-            if (n->set_value)
-            {
-                v.type = VAL_STRING;
-                v.str = strdup(n->set_value);
-                set_variable(n->set_name, v);
-            }
 
-            // Case 2: Copy from another variable
-            else if (n->copy_from_var)
+            if (n->copy_from_var)
             {
                 v = get_variable(n->copy_from_var);
-                set_variable(n->set_name, v);
+                if (v.type == VAL_STRING)
+                    v.str = strdup(v.str); // ensure safety
             }
+            else
+            {
+                v = n->literal_value;
+                if (v.type == VAL_STRING)
+                    v.str = strdup(v.str); // duplicate before storing
+            }
+
+            set_variable(n->set_name, v);
         }
         // Function call
         else if (n->type == NODE_FUNC_CALL)

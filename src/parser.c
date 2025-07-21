@@ -60,7 +60,14 @@ static ASTNode *parse_set_stmt()
 
     if (current.type == TOKEN_STRING)
     {
-        n->set_value = strdup(current.value);
+        n->literal_value.type = VAL_STRING;
+        n->literal_value.str = strdup(current.value);
+        advance_token();
+    }
+    else if (current.type == TOKEN_NUMBER)
+    {
+        n->literal_value.type = VAL_NUMBER;
+        n->literal_value.num = atof(current.value);
         advance_token();
     }
     else if (current.type == TOKEN_IDENTIFIER)
@@ -70,7 +77,7 @@ static ASTNode *parse_set_stmt()
     }
     else
     {
-        fprintf(stderr, "Expected value or variable after 'to'\n");
+        fprintf(stderr, "Expected value, number, or variable after 'to'\n");
         exit(1);
     }
 
@@ -150,6 +157,7 @@ static void indent(int n)
         putchar(' ');
 }
 
+/*
 void print_ast(ASTNode **nodes, int count, int ind)
 {
     for (int i = 0; i < count; ++i)
@@ -173,6 +181,7 @@ void print_ast(ASTNode **nodes, int count, int ind)
         }
     }
 }
+*/
 
 /* --- free memory --- */
 void free_ast(ASTNode **nodes, int count)
@@ -185,8 +194,18 @@ void free_ast(ASTNode **nodes, int count)
         {
         case NODE_SET:
             free(n->set_name);
-            if (n->set_value)
-                free(n->set_value);
+            switch (n->literal_value.type) {
+                case VAL_STRING:
+                    if (n->literal_value.str)
+                        free(n->literal_value.str);
+                    break;
+                case VAL_NUMBER:
+                    // nothing to free for numbers
+                    break;
+                default:
+                    // nothing to free for other types
+                    break;
+            }
             if (n->copy_from_var)
                 free(n->copy_from_var);
             break;

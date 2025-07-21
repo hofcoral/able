@@ -31,8 +31,8 @@ typedef struct ASTNode
     NodeType type;
 
     /* —— SET —— */
-    char *set_name;  // identifier
-    char *set_value; // value
+    char *set_name;      // identifier
+    Value literal_value; // value
     char *copy_from_var; // Copy from another var
 
     /* —— FUNC_CALL —— */
