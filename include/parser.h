@@ -5,6 +5,22 @@
 
 typedef enum
 {
+    VAL_UNDEFINED,
+    VAL_STRING,
+    VAL_NUMBER
+} ValueType;
+
+typedef struct
+{
+    ValueType type;
+    union
+    {
+        char *str;
+        double num;
+    };
+} Value;
+typedef enum
+{
     NODE_SET,
     NODE_FUNC_CALL,
     NODE_VAR
