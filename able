@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -e
+
+SRC_DIR="$(dirname "$0")/src"
+INCLUDE_DIR="$(dirname "$0")/include"
+BIN="$SRC_DIR/able_exe"
+
+# Clean build (always rebuild)
+gcc "$SRC_DIR"/*.c -I"$INCLUDE_DIR" -o "$BIN"
+
+# Run the interpreter with the provided .abl file
+exec "$BIN" "$@"
