@@ -10,7 +10,9 @@ To build the project, run:
 make
 ```
 
-This will produce an executable, usually named `able`.
+This will produce an executable in `bin/able`.
+You can then run Able scripts with the `able` helper script, which builds
+the interpreter if needed.
 
 ## Running Able Files
 
@@ -24,7 +26,7 @@ Replace `path/to/yourfile.abl` with the path to your Able source file.
 
 ### Example
 
-Suppose you have a file called `example.abl`:
+Suppose you have a file called `examples/example.abl`:
 
 ```able
 set x to "hello"
@@ -34,7 +36,7 @@ print(x)
 Run it with:
 
 ```sh
-./able example.abl
+./able examples/example.abl
 ```
 
 ## Notes

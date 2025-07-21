@@ -29,9 +29,7 @@ Thumbs.db
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-Makefile
 
 # Generated files
 *.d
 
-able_exe
