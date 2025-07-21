@@ -1,13 +1,11 @@
 #!/bin/bash
+# Simple runner for the Able interpreter
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BIN="$SCRIPT_DIR/bin/able"
 
-set -e
+if [ ! -x "$BIN" ]; then
+    echo "Building interpreter..."
+    make -C "$SCRIPT_DIR" >/dev/null || { echo "Build failed"; exit 1; }
+fi
 
-SRC_DIR="$(dirname "$0")/src"
-INCLUDE_DIR="$(dirname "$0")/include"
-BIN="$SRC_DIR/able_exe"
-
-# Clean build (always rebuild)
-gcc "$SRC_DIR"/*.c -I"$INCLUDE_DIR" -o "$BIN"
-
-# Run the interpreter with the provided .abl file
 exec "$BIN" "$@"
