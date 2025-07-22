@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "types/value.h"
+
 typedef enum
 {
     TOKEN_EOF,

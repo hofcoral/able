@@ -1,0 +1,37 @@
+#ifndef VALUE_H
+#define VALUE_H
+
+#include <stdbool.h>
+
+struct Object; // Forward declaration (to avoid circular include)
+
+// ————— ENUM FOR VALUE TYPES ————— //
+typedef enum
+{
+    VAL_UNDEFINED,
+    VAL_NULL,
+    VAL_BOOL,
+    VAL_NUMBER,
+    VAL_STRING,
+    VAL_OBJECT,
+} ValueType;
+
+// ————— VALUE STRUCT ————— //
+typedef struct Value
+{
+    ValueType type;
+    union
+    {
+        bool boolean;
+        double num;
+        char *str;
+        struct Object *obj;
+    };
+} Value;
+
+// ————— FUNCTIONS ————— //
+Value clone_value(const Value *src);
+void free_value(Value val);
+void print_value(Value val); // For debugging
+
+#endif

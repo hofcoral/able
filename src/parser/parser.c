@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "parser.h"
-#include "lexer.h"
+#include "parser/parser.h"
+#include "types/value.h"
+#include "lexer/lexer.h"
+#include "types/object.h"
 
 /* --- helpers --- */
 static Token current;
@@ -58,26 +60,39 @@ static ASTNode *parse_set_stmt()
     }
     advance_token();
 
+    // Determine if assigning a literal or copying a variable
     if (current.type == TOKEN_STRING)
     {
         n->literal_value.type = VAL_STRING;
         n->literal_value.str = strdup(current.value);
+        n->is_copy = false;
         advance_token();
     }
     else if (current.type == TOKEN_NUMBER)
     {
         n->literal_value.type = VAL_NUMBER;
         n->literal_value.num = atof(current.value);
+        n->is_copy = false;
         advance_token();
+    }
+    else if (current.type == TOKEN_LBRACE)
+    {
+        ASTNode *obj_node = parse_object_literal();
+        n->literal_value = obj_node->literal_value;
+        n->is_copy = false;
+        free(obj_node);
     }
     else if (current.type == TOKEN_IDENTIFIER)
     {
         n->copy_from_var = strdup(current.value);
+        n->is_copy = true;
         advance_token();
     }
     else
     {
-        fprintf(stderr, "Expected value, number, or variable after 'to'\n");
+        fprintf(stderr, "Current: %s\n", current.value);
+
+        fprintf(stderr, "Expected string, number, object, or identifier after 'to'\n");
         exit(1);
     }
 
@@ -109,6 +124,79 @@ static ASTNode *parse_func_call()
 
     expect(TOKEN_RPAREN, "')'");
     return n;
+}
+
+ASTNode *parse_object_literal()
+{
+    expect(TOKEN_LBRACE, "'{'");
+
+    int cap = 4, count = 0;
+    KeyValuePair *pairs = malloc(cap * sizeof(KeyValuePair));
+
+    while (current.type != TOKEN_RBRACE)
+    {
+        if (count == cap)
+        {
+            cap *= 2;
+            pairs = realloc(pairs, cap * sizeof(KeyValuePair));
+        }
+
+        if (current.type != TOKEN_IDENTIFIER)
+        {
+            fprintf(stderr, "Expected key in object\n");
+            exit(1);
+        }
+
+        char *key = strdup(current.value);
+        advance_token();
+        expect(TOKEN_COLON, "':'");
+
+        Value val;
+
+        if (current.type == TOKEN_STRING)
+        {
+            val.type = VAL_STRING;
+            val.str = strdup(current.value);
+            advance_token();
+        }
+        else if (current.type == TOKEN_NUMBER)
+        {
+            val.type = VAL_NUMBER;
+            val.num = atof(current.value);
+            advance_token();
+        }
+        else if (current.type == TOKEN_LBRACE)
+        {
+            ASTNode *inner_obj_node = parse_object_literal();
+            val = inner_obj_node->literal_value;
+            free(inner_obj_node);
+        }
+        else
+        {
+            fprintf(stderr, "Expected literal value in object\n");
+            exit(1);
+        }
+
+        pairs[count].key = key;
+        pairs[count].value = val;
+        count++;
+
+        if (!match(TOKEN_COMMA))
+            break;
+    }
+
+    expect(TOKEN_RBRACE, "'}'");
+
+    Object *obj = malloc(sizeof(Object));
+    obj->count = count;
+    obj->capacity = cap;
+    obj->pairs = pairs;
+
+    ASTNode *obj_node = new_node(NODE_SET);
+    obj_node->literal_value.type = VAL_OBJECT;
+    obj_node->literal_value.obj = obj;
+
+    return obj_node;
 }
 
 static ASTNode *parse_statement()
@@ -148,87 +236,4 @@ ASTNode **parse_program(Lexer *lexer, int *out_count)
 
     *out_count = count;
     return list;
-}
-
-/* --- simple AST print --- */
-static void indent(int n)
-{
-    while (n--)
-        putchar(' ');
-}
-
-/*
-void print_ast(ASTNode **nodes, int count, int ind)
-{
-    for (int i = 0; i < count; ++i)
-    {
-        ASTNode *n = nodes[i];
-        indent(ind);
-        if (n->type == NODE_SET)
-        {
-            printf("Set(%s = \"%s\")\n", n->set_name, n->set_value);
-        }
-        else
-        {
-            printf("Call(%s ...)\n", n->func_name);
-            indent(ind + 2);
-            puts("Args:");
-            for (int a = 0; a < n->arg_count; ++a)
-            {
-                indent(ind + 4);
-                printf("Var(%s)\n", n->args[a]->set_name);
-            }
-        }
-    }
-}
-*/
-
-/* --- free memory --- */
-void free_ast(ASTNode **nodes, int count)
-{
-    for (int i = 0; i < count; i++)
-    {
-        ASTNode *n = nodes[i];
-
-        switch (n->type)
-        {
-        case NODE_SET:
-            free(n->set_name);
-            switch (n->literal_value.type) {
-                case VAL_STRING:
-                    if (n->literal_value.str)
-                        free(n->literal_value.str);
-                    break;
-                case VAL_NUMBER:
-                    // nothing to free for numbers
-                    break;
-                default:
-                    // nothing to free for other types
-                    break;
-            }
-            if (n->copy_from_var)
-                free(n->copy_from_var);
-            break;
-
-        case NODE_FUNC_CALL:
-            free(n->func_name);
-            for (int j = 0; j < n->arg_count; j++)
-            {
-                if (n->args[j])
-                {
-                    free(n->args[j]); // Directly free the argument node
-                }
-            }
-            free(n->args);
-            break;
-
-        case NODE_VAR:
-            free(n->set_name);
-            break;
-        }
-
-        free(n);
-    }
-
-    free(nodes);
 }

@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lexer.h"
-#include "parser.h"
-#include "interpreter.h"
+#include "lexer/lexer.h"
+#include "types/variable.h"
+#include "parser/parser.h"
+#include "interpreter/interpreter.h"
+#include "ast/ast.h"
 
 char *read_file(const char *filename)
 {
@@ -52,11 +54,13 @@ int main(int argc, char *argv[])
     int stmt_count;
 
     ASTNode **prog = parse_program(&lexer, &stmt_count);
-    // print_ast(prog, stmt_count, 0);
+
     run_ast(prog, stmt_count);
 
+    // Run "Garbage Collection"
     free_ast(prog, stmt_count);
     free_vars();
     free(code);
+
     return 0;
 }

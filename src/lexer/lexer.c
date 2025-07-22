@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "lexer.h"
+
+#include "lexer/lexer.h"
 
 // === Helpers === //
 char peek(Lexer *lexer)
