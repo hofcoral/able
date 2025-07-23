@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <printf.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "types/value.h"
@@ -14,6 +14,9 @@ void free_value(Value v)
         break;
     case VAL_OBJECT:
         free_object(v.obj);
+        break;
+    case VAL_FUNCTION:
+        /* functions are freed as part of AST cleanup */
         break;
     default:
         // VAL_NUMBER, VAL_NULL, VAL_UNDEFINED don't need manual freeing
@@ -36,6 +39,9 @@ Value clone_value(const Value *src)
         break;
     case VAL_OBJECT:
         copy.obj = clone_object(src->obj);
+        break;
+    case VAL_FUNCTION:
+        copy.func = src->func;
         break;
     case VAL_NULL:
     case VAL_UNDEFINED:
@@ -86,6 +92,10 @@ void print_value(Value v, int indent)
         for (int j = 0; j < indent; j++)
             printf(" ");
         printf("}\n");
+        break;
+
+    case VAL_FUNCTION:
+        printf("<function>");
         break;
 
     default:

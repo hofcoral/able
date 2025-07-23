@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 struct Object; // Forward declaration (to avoid circular include)
+struct Function; // Forward declaration for functions
 
 // ————— ENUM FOR VALUE TYPES ————— //
 typedef enum
@@ -14,6 +15,7 @@ typedef enum
     VAL_NUMBER,
     VAL_STRING,
     VAL_OBJECT,
+    VAL_FUNCTION,
 } ValueType;
 
 // ————— VALUE STRUCT ————— //
@@ -26,6 +28,7 @@ typedef struct Value
         double num;
         char *str;
         struct Object *obj;
+        struct Function *func;
     };
 } Value;
 

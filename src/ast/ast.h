@@ -37,6 +37,7 @@ typedef struct ASTNode
 
     // Function call
     char *func_name;
+    struct ASTNode *func_callee; // allow attribute based calls
 
 } ASTNode;
 
