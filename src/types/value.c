@@ -52,7 +52,7 @@ void print_value(Value v, int indent)
     switch (v.type)
     {
     case VAL_STRING:
-        printf("\"%s\"", v.str);
+        printf("%s", v.str);
         break;
 
     case VAL_NUMBER:
