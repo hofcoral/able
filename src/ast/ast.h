@@ -24,6 +24,7 @@ typedef struct ASTNode
 
     // SET
     char *set_name;
+    struct ASTNode *set_attr; // destination attribute chain if assigning to attr
     Value literal_value;
     bool is_copy;
     char *copy_from_var;            // for basic copy

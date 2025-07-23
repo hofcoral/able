@@ -34,26 +34,51 @@ static void expect(TokenType type, const char *msg)
 }
 
 /* --- parsing functions --- */
-static ASTNode *parse_set_stmt()
+static ASTNode *parse_identifier_chain()
 {
-    ASTNode *n = new_node(NODE_SET);
-
     if (current.type != TOKEN_IDENTIFIER)
     {
-        fprintf(stderr, "Expected identifier after 'set'\n");
+        fprintf(stderr, "Expected identifier\n");
         exit(1);
     }
 
-    n->set_name = strdup(current.value);
+    char *first = strdup(current.value);
     advance_token();
 
-    if (current.type != TOKEN_TO)
+    if (!match(TOKEN_DOT))
     {
-        fprintf(stderr, "Expected 'to' after variable name\n");
-        exit(1);
+        ASTNode *var = new_node(NODE_VAR);
+        var->set_name = first;
+        return var;
     }
-    advance_token();
 
+    ASTNode *base = new_node(NODE_ATTR_ACCESS);
+    base->object_name = first;
+    base->child_count = 0;
+    base->children = NULL;
+
+    do
+    {
+        if (current.type != TOKEN_IDENTIFIER)
+        {
+            fprintf(stderr, "Expected attribute name after '.'\n");
+            exit(1);
+        }
+
+        ASTNode *attr = new_node(NODE_ATTR_ACCESS);
+        attr->attr_name = strdup(current.value);
+        attr->child_count = 0;
+        attr->children = NULL;
+        advance_token();
+
+        add_child(base, attr);
+    } while (match(TOKEN_DOT));
+
+    return base;
+}
+
+static void parse_literal_into_set(ASTNode *n)
+{
     if (current.type == TOKEN_STRING)
     {
         n->literal_value.type = VAL_STRING;
@@ -77,33 +102,17 @@ static ASTNode *parse_set_stmt()
     }
     else if (current.type == TOKEN_IDENTIFIER)
     {
-        ASTNode *base = new_node(NODE_ATTR_ACCESS);
-        base->object_name = strdup(current.value);
-        base->child_count = 0;
-        base->children = NULL;
-        advance_token();
-
-        while (match(TOKEN_DOT))
-        {
-            if (current.type != TOKEN_IDENTIFIER)
-            {
-                fprintf(stderr, "Expected attribute name after '.'\n");
-                exit(1);
-            }
-
-            ASTNode *attr = new_node(NODE_ATTR_ACCESS);
-            attr->attr_name = strdup(current.value);
-            attr->child_count = 0;
-            attr->children = NULL;
-            advance_token();
-
-            // Append child
-            base->children = realloc(base->children, sizeof(ASTNode *) * (base->child_count + 1));
-            base->children[base->child_count++] = attr;
-        }
-
+        ASTNode *src = parse_identifier_chain();
         n->is_copy = true;
-        n->copy_from_attr = base;
+        if (src->type == NODE_VAR)
+        {
+            n->copy_from_var = src->set_name;
+            free(src);
+        }
+        else
+        {
+            n->copy_from_attr = src;
+        }
     }
     else
     {
@@ -111,6 +120,31 @@ static ASTNode *parse_set_stmt()
         fprintf(stderr, "Expected string, number, object, or identifier after 'to'\n");
         exit(1);
     }
+}
+
+static ASTNode *parse_set_stmt()
+{
+    ASTNode *n = new_node(NODE_SET);
+
+    ASTNode *dest = parse_identifier_chain();
+    if (dest->type == NODE_VAR)
+    {
+        n->set_name = dest->set_name;
+        free(dest);
+    }
+    else
+    {
+        n->set_attr = dest;
+    }
+
+    if (current.type != TOKEN_TO)
+    {
+        fprintf(stderr, "Expected 'to' after variable name\n");
+        exit(1);
+    }
+    advance_token();
+
+    parse_literal_into_set(n);
 
     return n;
 }
