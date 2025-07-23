@@ -118,6 +118,8 @@ Token next_token(Lexer *lexer)
         return make_token(TOKEN_LPAREN, "(", 1);
     if (c == ')')
         return make_token(TOKEN_RPAREN, ")", 1);
+    if (c == '.')
+        return make_token(TOKEN_DOT, ".", 1);
 
     return make_token(TOKEN_UNKNOWN, &c, 1);
 }
