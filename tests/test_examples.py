@@ -9,6 +9,7 @@ EXAMPLES = {
     'examples/main.abl': 'Hello World!\n',
     'examples/objects.abl': 'First name: Hof\n\n',
     'examples/return_example.abl': 'test\n',
+    'examples/assign_from_return.abl': 'hello\n',
 }
 
 class ExampleTests(unittest.TestCase):

@@ -16,6 +16,9 @@ static Lexer *L;
 
 static ASTNode *parse_statement();
 static ASTNode *parse_return_stmt();
+static ASTNode *finish_func_call(ASTNode *callee);
+static ASTNode *parse_func_call();
+ASTNode *parse_argument();
 
 static void advance_token() { current = next_token(L); }
 
@@ -187,6 +190,11 @@ static void parse_literal_into_set(ASTNode *n)
     else if (current.type == TOKEN_IDENTIFIER)
     {
         ASTNode *src = parse_identifier_chain();
+        if (current.type == TOKEN_LPAREN)
+        {
+            src = finish_func_call(src);
+        }
+
         n->is_copy = true;
         if (src->type == NODE_VAR)
         {
