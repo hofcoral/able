@@ -8,6 +8,7 @@ EXAMPLES = {
     'examples/attr_set.abl': '30.000000\nWonderland\n',
     'examples/main.abl': 'Hello World!\n',
     'examples/objects.abl': 'First name: Hof\n\n',
+    'examples/return_example.abl': 'test\n',
 }
 
 class ExampleTests(unittest.TestCase):

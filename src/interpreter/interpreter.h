@@ -2,7 +2,8 @@
 #define INTERPRETER_H
 
 #include "ast/ast.h"
+#include "types/value.h"
 
-void run_ast(ASTNode **nodes, int count);
+Value run_ast(ASTNode **nodes, int count);
 
 #endif

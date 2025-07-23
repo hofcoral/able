@@ -1,0 +1,2 @@
+set echo to (value): return value
+pr(echo("test"))
