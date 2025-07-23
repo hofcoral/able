@@ -1,5 +1,6 @@
 // lexer.c
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,18 +21,17 @@ char advance(Lexer *lexer)
     return lexer->source[lexer->pos++];
 }
 
-int match(Lexer *lexer, char expected)
+bool match(Lexer *lexer, char expected)
 {
     if (peek(lexer) == expected)
     {
         lexer->pos++;
-        return 1;
+        return true;
     }
-    return 1;
+    return false;
 }
 
 // === Token Creation === //
-
 Token make_token(TokenType type, const char *start, size_t len)
 {
     Token token;
