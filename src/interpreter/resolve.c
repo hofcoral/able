@@ -6,13 +6,14 @@
 #include "types/value.h"
 #include "ast/ast.h"
 #include "types/variable.h"
+#include "utils/utils.h"
 
 Value resolve_attribute_chain(ASTNode *attr_node)
 {
     Value base = get_variable(attr_node->object_name);
     if (base.type != VAL_OBJECT)
     {
-        fprintf(stderr, "Error: '%s' is not an object\n", attr_node->object_name);
+        log_error("Error: '%s' is not an object", attr_node->object_name);
         exit(1);
     }
 
@@ -23,7 +24,7 @@ Value resolve_attribute_chain(ASTNode *attr_node)
 
         if (i < attr_node->child_count - 1 && base.type != VAL_OBJECT)
         {
-            fprintf(stderr, "Error: intermediate '%s' is not an object\n", attr_node->attr_name);
+            log_error("Error: intermediate '%s' is not an object", attr_node->attr_name);
             exit(1);
         }
     }
@@ -36,7 +37,7 @@ void assign_attribute_chain(ASTNode *attr_node, Value val)
     Value base_val = get_variable(attr_node->object_name);
     if (base_val.type != VAL_OBJECT)
     {
-        fprintf(stderr, "Error: '%s' is not an object\n", attr_node->object_name);
+        log_error("Error: '%s' is not an object", attr_node->object_name);
         exit(1);
     }
 
@@ -58,7 +59,7 @@ void assign_attribute_chain(ASTNode *attr_node, Value val)
         }
         else if (next.type != VAL_OBJECT)
         {
-            fprintf(stderr, "Error: intermediate '%s' is not an object\n", seg->attr_name);
+            log_error("Error: intermediate '%s' is not an object", seg->attr_name);
             exit(1);
         }
 

@@ -6,6 +6,7 @@
 #include "types/variable.h"
 #include "types/value.h"
 #include "types/object.h"
+#include "utils/utils.h"
 
 void set_variable(const char *name, Value val)
 {
@@ -65,7 +66,7 @@ Value get_variable(const char *name)
             return vars[i].value; // safe if caller doesn't free
         }
     }
-    fprintf(stderr, "Runtime error: variable '%s' is not defined.\n", name);
+    log_error("Runtime error: variable '%s' is not defined.", name);
     exit(1);
 }
 

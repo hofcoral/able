@@ -7,6 +7,7 @@
 #include "parser/parser.h"
 #include "interpreter/interpreter.h"
 #include "ast/ast.h"
+#include "utils/utils.h"
 
 char *read_file(const char *filename)
 {
@@ -14,7 +15,7 @@ char *read_file(const char *filename)
 
     if (!file)
     {
-        fprintf(stderr, "Error:Could not open file%s\n", filename);
+        log_error("Error:Could not open file%s", filename);
         exit(1);
     }
 
@@ -27,7 +28,7 @@ char *read_file(const char *filename)
     char *buffer = (char *)malloc(length + 1);
     if (!buffer)
     {
-        fprintf(stderr, "Error: Memory allocation failed\n");
+        log_error("Error: Memory allocation failed");
         exit(1);
     }
 
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
 {
     if (argc != 2)
     {
-        printf("Usage: %s <file.abl>\n", argv[0]);
+        log_info("Usage: %s <file.abl>", argv[0]);
         return 1;
     }
 

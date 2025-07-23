@@ -7,6 +7,7 @@
 #include <ctype.h>
 
 #include "lexer/lexer.h"
+#include "utils/utils.h"
 
 // === Helpers === //
 char peek(Lexer *lexer)
@@ -43,7 +44,7 @@ void skip_multiline_comment(Lexer *lexer)
         advance(lexer);
     }
 
-    fprintf(stderr, "Unterminated multiline comment\n");
+    log_error("Unterminated multiline comment");
     exit(1);
 }
 
