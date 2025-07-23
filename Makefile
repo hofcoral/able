@@ -1,5 +1,3 @@
-# Makefile
-
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -g -Isrc -D_GNU_SOURCE
 SRC_DIR = src
@@ -14,10 +12,10 @@ SRCS = \
     $(SRC_DIR)/types/value.c \
     $(SRC_DIR)/types/variable.c \
     $(SRC_DIR)/interpreter/interpreter.c \
-    $(SRC_DIR)/interpreter/resolve.c
+    $(SRC_DIR)/interpreter/resolve.c \
+    $(SRC_DIR)/utils/utils.c
 
 OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-
 OUT = $(BUILD_DIR)/able_exe
 
 all: $(OUT)
@@ -40,4 +38,3 @@ run:
 		exit 1; \
 	fi; \
 	$(OUT) $$FILE
-	

@@ -7,6 +7,7 @@
 #include "types/variable.h"
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
+#include "utils/utils.h"
 
 void run_ast(ASTNode **nodes, int count)
 {
@@ -49,7 +50,7 @@ void run_ast(ASTNode **nodes, int count)
             {
                 if (n->child_count != 1)
                 {
-                    fprintf(stderr, "pr() takes 1 argument\n");
+                    log_error("pr() takes 1 argument");
                     continue;
                 }
 
@@ -61,7 +62,7 @@ void run_ast(ASTNode **nodes, int count)
 
                     if (obj_val.type != VAL_OBJECT)
                     {
-                        fprintf(stderr, "Error: %s is not an object\n", arg->object_name);
+                        log_error("Error: %s is not an object", arg->object_name);
                         continue;
                     }
 
@@ -83,14 +84,14 @@ void run_ast(ASTNode **nodes, int count)
 
                 else
                 {
-                    fprintf(stderr, "pr() only supports variables or attributes\n");
+                    log_error("pr() only supports variables or attributes");
                     continue;
                 }
             }
 
             else
             {
-                fprintf(stderr, "Unknown function: %s\n", n->func_name);
+                log_error("Unknown function: %s", n->func_name);
             }
         }
     }

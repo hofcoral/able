@@ -7,6 +7,7 @@
 #include "lexer/lexer.h"
 #include "types/object.h"
 #include "ast/ast.h"
+#include "utils/utils.h"
 
 /* --- helpers --- */
 static Token current;
@@ -28,7 +29,7 @@ static void expect(TokenType type, const char *msg)
 {
     if (!match(type))
     {
-        fprintf(stderr, "Parse error: expected %s\n", msg);
+        log_error("Parse error: expected %s", msg);
         exit(1);
     }
 }
@@ -38,7 +39,7 @@ static ASTNode *parse_identifier_chain()
 {
     if (current.type != TOKEN_IDENTIFIER)
     {
-        fprintf(stderr, "Expected identifier\n");
+        log_error("Expected identifier");
         exit(1);
     }
 
@@ -61,7 +62,7 @@ static ASTNode *parse_identifier_chain()
     {
         if (current.type != TOKEN_IDENTIFIER)
         {
-            fprintf(stderr, "Expected attribute name after '.'\n");
+            log_error("Expected attribute name after '.'");
             exit(1);
         }
 
@@ -116,8 +117,8 @@ static void parse_literal_into_set(ASTNode *n)
     }
     else
     {
-        fprintf(stderr, "Current: %s\n", current.value);
-        fprintf(stderr, "Expected string, number, object, or identifier after 'to'\n");
+        log_error("Current: %s", current.value);
+        log_error("Expected string, number, object, or identifier after 'to'");
         exit(1);
     }
 }
@@ -139,7 +140,7 @@ static ASTNode *parse_set_stmt()
 
     if (current.type != TOKEN_TO)
     {
-        fprintf(stderr, "Expected 'to' after variable name\n");
+        log_error("Expected 'to' after variable name");
         exit(1);
     }
     advance_token();
@@ -172,7 +173,7 @@ ASTNode *parse_argument()
 {
     if (current.type != TOKEN_IDENTIFIER)
     {
-        fprintf(stderr, "Expected identifier or attribute access\n");
+        log_error("Expected identifier or attribute access");
         exit(1);
     }
 
@@ -188,7 +189,7 @@ ASTNode *parse_argument()
 
         if (current.type != TOKEN_IDENTIFIER)
         {
-            fprintf(stderr, "Expected attribute name after '.'\n");
+            log_error("Expected attribute name after '.'");
             exit(1);
         }
 
@@ -227,7 +228,7 @@ ASTNode *parse_object_literal()
 
         if (current.type != TOKEN_IDENTIFIER)
         {
-            fprintf(stderr, "Expected key in object\n");
+            log_error("Expected key in object");
             exit(1);
         }
 
@@ -257,7 +258,7 @@ ASTNode *parse_object_literal()
         }
         else
         {
-            fprintf(stderr, "Expected literal value in object\n");
+            log_error("Expected literal value in object");
             exit(1);
         }
 
@@ -295,7 +296,7 @@ static ASTNode *parse_statement()
     if (current.type == TOKEN_IDENTIFIER)
         return parse_func_call();
 
-    fprintf(stderr, "Parse error: unexpected token '%s'\n", current.value);
+    log_error("Parse error: unexpected token '%s'", current.value);
     exit(1);
 }
 
