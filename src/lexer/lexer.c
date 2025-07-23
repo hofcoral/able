@@ -31,6 +31,22 @@ bool match(Lexer *lexer, char expected)
     return false;
 }
 
+void skip_multiline_comment(Lexer *lexer)
+{
+    while (lexer->pos < lexer->length)
+    {
+        if (peek(lexer) == '#' && lexer->pos + 1 < lexer->length && lexer->source[lexer->pos + 1] == '#')
+        {
+            lexer->pos += 2; // Skip the closing ##
+            return;
+        }
+        advance(lexer);
+    }
+
+    fprintf(stderr, "Unterminated multiline comment\n");
+    exit(1);
+}
+
 // === Token Creation === //
 Token make_token(TokenType type, const char *start, size_t len)
 {
@@ -43,14 +59,39 @@ Token make_token(TokenType type, const char *start, size_t len)
 // === Core Tokenizer === //
 Token next_token(Lexer *lexer)
 {
-    while (isspace(peek(lexer)))
+    while (1)
     {
-        if (peek(lexer) == '\n')
+        char c = peek(lexer);
+
+        // Skip whitespace
+        if (c == ' ' || c == '\t' || c == '\r')
+        {
+            advance(lexer);
+            continue;
+        }
+        if (c == '\n')
         {
             advance(lexer);
             return make_token(TOKEN_NEWLINE, "\n", 1);
         }
-        advance(lexer);
+
+        // Single-line comment
+        if (c == '#' && lexer->source[lexer->pos + 1] != '#')
+        {
+            while (peek(lexer) != '\n' && peek(lexer) != '\0')
+                advance(lexer);
+            continue;
+        }
+
+        // Multiline comment ##
+        if (c == '#' && lexer->pos + 1 < lexer->length && lexer->source[lexer->pos + 1] == '#')
+        {
+            lexer->pos += 2; // Skip initial ##
+            skip_multiline_comment(lexer);
+            continue;
+        }
+
+        break;
     }
 
     char c = advance(lexer);
