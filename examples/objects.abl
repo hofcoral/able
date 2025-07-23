@@ -1,5 +1,5 @@
-set my_obj to {name: "Hof", age: 22}
+set my_obj to {name: "Hof" , age: 22}
 
 set name to "Hof"
 
-pr("name")
+pr(name)
