@@ -1,4 +1,3 @@
 set message to "Hello World!"
 
-set main to ():
-    pr(message)
+pr(message)
