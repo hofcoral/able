@@ -1,3 +1,5 @@
-set my_obj to {name: { f_name: "Hof", l_name: "Coral"}, age: 22}
+set person to {name: { f_name: "Hof", l_name: "Coral"}, age: 22}
 
-pr(my_obj)
+set my_name to person.name
+
+pr(my_name.f_name)

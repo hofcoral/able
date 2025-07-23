@@ -23,6 +23,7 @@ typedef enum
     TOKEN_RBRACE,
     TOKEN_COLON,
     TOKEN_COMMA,
+    TOKEN_DOT,
     TOKEN_NEWLINE,
     TOKEN_UNKNOWN
 } TokenType;
