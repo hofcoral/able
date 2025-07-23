@@ -23,6 +23,8 @@ static void free_node(ASTNode *n)
     if (n->type == NODE_SET)
     {
         free(n->set_name);
+        if (n->set_attr)
+            free_node(n->set_attr);
 
         if (n->is_copy)
         {

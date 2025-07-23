@@ -33,7 +33,14 @@ void run_ast(ASTNode **nodes, int count)
                 result = clone_value(&n->literal_value);
             }
 
-            set_variable(n->set_name, result);
+            if (n->set_attr)
+            {
+                assign_attribute_chain(n->set_attr, result);
+            }
+            else
+            {
+                set_variable(n->set_name, result);
+            }
         }
 
         else if (n->type == NODE_FUNC_CALL)

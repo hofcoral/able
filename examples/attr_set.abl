@@ -1,0 +1,5 @@
+set person to {name: {first: "Ada"}}
+set person.age to 30
+set person.country to "Wonderland"
+pr(person.age)
+pr(person.country)
