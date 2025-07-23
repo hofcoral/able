@@ -3,7 +3,8 @@ set person to {name: { f_name: "Hof", l_name: "Coral"}, age: 22}
 # This is a comments
 set my_name to person.name
 
-pr(my_name.f_name)
+pr("First name:", my_name.f_name)
+pr()
 
 
 ##

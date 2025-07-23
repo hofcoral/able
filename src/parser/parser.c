@@ -78,6 +78,37 @@ static ASTNode *parse_identifier_chain()
     return base;
 }
 
+static ASTNode *parse_literal_node()
+{
+    ASTNode *n = new_node(NODE_LITERAL);
+
+    if (current.type == TOKEN_STRING)
+    {
+        n->literal_value.type = VAL_STRING;
+        n->literal_value.str = strdup(current.value);
+        advance_token();
+    }
+    else if (current.type == TOKEN_NUMBER)
+    {
+        n->literal_value.type = VAL_NUMBER;
+        n->literal_value.num = atof(current.value);
+        advance_token();
+    }
+    else if (current.type == TOKEN_LBRACE)
+    {
+        ASTNode *obj = parse_object_literal();
+        n->literal_value = obj->literal_value;
+        free(obj);
+    }
+    else
+    {
+        log_error("Expected literal value");
+        exit(1);
+    }
+
+    return n;
+}
+
 static void parse_literal_into_set(ASTNode *n)
 {
     if (current.type == TOKEN_STRING)
@@ -158,12 +189,20 @@ static ASTNode *parse_func_call()
 
     expect(TOKEN_LPAREN, "'('");
 
-    // Only one argument for now
-    ASTNode *arg = parse_argument();
+    n->children = NULL;
+    n->child_count = 0;
 
-    n->child_count = 1;
-    n->children = calloc(1, sizeof(ASTNode *));
-    n->children[0] = arg;
+    if (current.type != TOKEN_RPAREN)
+    {
+        while (1)
+        {
+            ASTNode *arg = parse_argument();
+            add_child(n, arg);
+
+            if (!match(TOKEN_COMMA))
+                break;
+        }
+    }
 
     expect(TOKEN_RPAREN, "')'");
     return n;
@@ -171,40 +210,17 @@ static ASTNode *parse_func_call()
 
 ASTNode *parse_argument()
 {
-    if (current.type != TOKEN_IDENTIFIER)
+    if (current.type == TOKEN_IDENTIFIER)
     {
-        log_error("Expected identifier or attribute access");
-        exit(1);
+        return parse_identifier_chain();
+    }
+    else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER || current.type == TOKEN_LBRACE)
+    {
+        return parse_literal_node();
     }
 
-    ASTNode *base = new_node(NODE_VAR);
-    base->set_name = strdup(current.value);
-    advance_token();
-
-    // Handle dotted access: person.name.first
-    while (match(TOKEN_DOT))
-    {
-        ASTNode *attr = new_node(NODE_ATTR_ACCESS);
-        attr->object_name = base->set_name;
-
-        if (current.type != TOKEN_IDENTIFIER)
-        {
-            log_error("Expected attribute name after '.'");
-            exit(1);
-        }
-
-        attr->attr_name = strdup(current.value);
-        advance_token();
-
-        // Replace base with attr node and store base as child
-        attr->child_count = 1;
-        attr->children = calloc(1, sizeof(ASTNode *));
-        attr->children[0] = base;
-
-        base = attr;
-    }
-
-    return base;
+    log_error("Invalid argument");
+    exit(1);
 }
 
 ASTNode *parse_object_literal()
@@ -282,7 +298,7 @@ ASTNode *parse_object_literal()
     obj->capacity = cap;
     obj->pairs = pairs;
 
-    ASTNode *obj_node = new_node(NODE_SET);
+    ASTNode *obj_node = new_node(NODE_LITERAL);
     obj_node->literal_value.type = VAL_OBJECT;
     obj_node->literal_value.obj = obj;
 

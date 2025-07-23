@@ -1,5 +1,5 @@
 set name to "Daniel"
 set age to 22
 
-pr(name)
-pr(age)
+pr(name, age)
+pr()

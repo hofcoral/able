@@ -48,45 +48,38 @@ void run_ast(ASTNode **nodes, int count)
         {
             if (strcmp(n->func_name, "pr") == 0)
             {
-                if (n->child_count != 1)
+                for (int j = 0; j < n->child_count; ++j)
                 {
-                    log_error("pr() takes 1 argument");
-                    continue;
-                }
+                    ASTNode *arg = n->children[j];
+                    Value val;
 
-                ASTNode *arg = n->children[0];
-
-                if (arg->type == NODE_ATTR_ACCESS)
-                {
-                    Value obj_val = get_variable(arg->object_name);
-
-                    if (obj_val.type != VAL_OBJECT)
+                    if (arg->type == NODE_ATTR_ACCESS)
                     {
-                        log_error("Error: %s is not an object", arg->object_name);
-                        continue;
+                        val = resolve_attribute_chain(arg);
+                    }
+                    else if (arg->type == NODE_VAR)
+                    {
+                        val = get_variable(arg->set_name);
+                    }
+                    else if (arg->type == NODE_LITERAL)
+                    {
+                        val = arg->literal_value;
+                    }
+                    else
+                    {
+                        log_error("pr() received unsupported argument type");
+                        goto pr_end;
                     }
 
-                    Object *obj = obj_val.obj;
-                    Value attr_val = object_get(obj, arg->attr_name);
-
-                    print_value(attr_val, 0);
-                    printf("\n");
-                    continue;
-                }
-
-                else if (arg->type == NODE_VAR)
-                {
-                    Value val = get_variable(arg->set_name);
                     print_value(val, 0);
-                    printf("\n");
-                    continue;
+
+                    if (j < n->child_count - 1)
+                        printf(" ");
                 }
 
-                else
-                {
-                    log_error("pr() only supports variables or attributes");
-                    continue;
-                }
+            pr_end:
+                printf("\n");
+                continue;
             }
 
             else
