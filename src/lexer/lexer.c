@@ -43,7 +43,6 @@ Token make_token(TokenType type, const char *start, size_t len)
 // === Core Tokenizer === //
 Token next_token(Lexer *lexer)
 {
-    // Skip whitespace and comments
     while (1)
     {
         char c = peek(lexer);
@@ -60,12 +59,29 @@ Token next_token(Lexer *lexer)
             continue;
         }
 
-        // Skip comments
-        if (c == '#')
+        // Single-line comment
+        if (c == '#' && lexer->source[lexer->pos + 1] != '#')
         {
             while (peek(lexer) != '\n' && peek(lexer) != '\0')
                 advance(lexer);
-            continue; // Start the loop again
+            continue;
+        }
+
+        // Multiline comment ##
+        if (c == '#' && lexer->source[lexer->pos + 1] == '#')
+        {
+            lexer->pos += 2; // Skip initial ##
+            while (!(peek(lexer) == '#' && lexer->source[lexer->pos + 1] == '#'))
+            {
+                if (peek(lexer) == '\0')
+                {
+                    fprintf(stderr, "Unterminated multiline comment\n");
+                    exit(1);
+                }
+                advance(lexer);
+            }
+            lexer->pos += 2; // Skip closing ##
+            continue;
         }
 
         break;

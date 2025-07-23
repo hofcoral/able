@@ -1,5 +1,15 @@
 set person to {name: { f_name: "Hof", l_name: "Coral"}, age: 22}
 
+# This is a comments
 set my_name to person.name
 
 pr(my_name.f_name)
+
+
+##
+set some_variable to 1
+set some_other_variable to 2
+
+pr(some_variable)
+pr(some_other_variable)
+##
