@@ -6,12 +6,15 @@
 #include "types/value.h"
 #include "lexer/lexer.h"
 #include "types/object.h"
+#include "types/function.h"
 #include "ast/ast.h"
 #include "utils/utils.h"
 
 /* --- helpers --- */
 static Token current;
 static Lexer *L;
+
+static ASTNode *parse_statement();
 
 static void advance_token() { current = next_token(L); }
 
@@ -109,6 +112,54 @@ static ASTNode *parse_literal_node()
     return n;
 }
 
+static Function *parse_function_def()
+{
+    expect(TOKEN_LPAREN, "'('");
+
+    int cap = 4, count = 0;
+    char **params = malloc(sizeof(char *) * cap);
+
+    if (current.type != TOKEN_RPAREN)
+    {
+        while (1)
+        {
+            if (current.type != TOKEN_IDENTIFIER)
+            {
+                log_error("Expected parameter name");
+                exit(1);
+            }
+
+            if (count == cap)
+            {
+                cap *= 2;
+                params = realloc(params, sizeof(char *) * cap);
+            }
+
+            params[count++] = strdup(current.value);
+            advance_token();
+
+            if (!match(TOKEN_COMMA))
+                break;
+        }
+    }
+
+    expect(TOKEN_RPAREN, "')'");
+    expect(TOKEN_COLON, "':'");
+
+    if (current.type == TOKEN_NEWLINE)
+        advance_token();
+
+    ASTNode **body = malloc(sizeof(ASTNode *));
+    body[0] = parse_statement();
+
+    Function *fn = malloc(sizeof(Function));
+    fn->param_count = count;
+    fn->params = params;
+    fn->body = body;
+    fn->body_count = 1;
+    return fn;
+}
+
 static void parse_literal_into_set(ASTNode *n)
 {
     if (current.type == TOKEN_STRING)
@@ -176,7 +227,17 @@ static ASTNode *parse_set_stmt()
     }
     advance_token();
 
-    parse_literal_into_set(n);
+    if (current.type == TOKEN_LPAREN)
+    {
+        Function *fn = parse_function_def();
+        n->literal_value.type = VAL_FUNCTION;
+        n->literal_value.func = fn;
+        n->is_copy = false;
+    }
+    else
+    {
+        parse_literal_into_set(n);
+    }
 
     return n;
 }
@@ -184,8 +245,12 @@ static ASTNode *parse_set_stmt()
 static ASTNode *parse_func_call()
 {
     ASTNode *n = new_node(NODE_FUNC_CALL);
-    n->func_name = strdup(current.value);
-    advance_token(); // consume function name
+    n->func_callee = parse_identifier_chain();
+
+    if (n->func_callee->type == NODE_VAR)
+        n->func_name = strdup(n->func_callee->set_name);
+    else
+        n->func_name = NULL;
 
     expect(TOKEN_LPAREN, "'('");
 

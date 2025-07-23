@@ -10,6 +10,7 @@ SRCS = \
     $(SRC_DIR)/ast/ast.c \
     $(SRC_DIR)/types/object.c \
     $(SRC_DIR)/types/value.c \
+    $(SRC_DIR)/types/function.c \
     $(SRC_DIR)/types/variable.c \
     $(SRC_DIR)/interpreter/interpreter.c \
     $(SRC_DIR)/interpreter/resolve.c \

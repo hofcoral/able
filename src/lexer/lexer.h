@@ -24,6 +24,7 @@ typedef enum
     TOKEN_COLON,
     TOKEN_COMMA,
     TOKEN_DOT,
+    TOKEN_ARROW,
     TOKEN_NEWLINE,
     TOKEN_UNKNOWN
 } TokenType;

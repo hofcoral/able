@@ -47,6 +47,8 @@ static void free_node(ASTNode *n)
     if (n->type == NODE_FUNC_CALL)
     {
         free(n->func_name);
+        if (n->func_callee)
+            free_node(n->func_callee);
     }
 
     if (n->type == NODE_ATTR_ACCESS)

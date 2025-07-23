@@ -29,6 +29,9 @@ void set_variable(const char *name, Value val)
             case VAL_OBJECT:
                 vars[i].value.obj = clone_object(val.obj);
                 break;
+            case VAL_FUNCTION:
+                vars[i].value.func = val.func;
+                break;
             default:
                 break;
             }
@@ -49,6 +52,9 @@ void set_variable(const char *name, Value val)
         break;
     case VAL_OBJECT:
         vars[var_count].value.obj = clone_object(val.obj);
+        break;
+    case VAL_FUNCTION:
+        vars[var_count].value.func = val.func;
         break;
     default:
         break;
