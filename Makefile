@@ -1,7 +1,8 @@
 # Makefile
 
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -g -Isrc
+# Enable POSIX/GNU extensions so functions like strdup/strndup are declared
+CFLAGS = -Wall -Wextra -std=c99 -g -Isrc -D_GNU_SOURCE
 SRC_DIR = src
 BUILD_DIR = build
 
