@@ -31,6 +31,22 @@ bool match(Lexer *lexer, char expected)
     return false;
 }
 
+void skip_multiline_comment(Lexer *lexer)
+{
+    while (lexer->pos < lexer->length)
+    {
+        if (peek(lexer) == '#' && lexer->pos + 1 < lexer->length && lexer->source[lexer->pos + 1] == '#')
+        {
+            lexer->pos += 2; // Skip the closing ##
+            return;
+        }
+        advance(lexer);
+    }
+
+    fprintf(stderr, "Unterminated multiline comment\n");
+    exit(1);
+}
+
 // === Token Creation === //
 Token make_token(TokenType type, const char *start, size_t len)
 {
@@ -48,15 +64,15 @@ Token next_token(Lexer *lexer)
         char c = peek(lexer);
 
         // Skip whitespace
-        if (isspace(c))
+        if (c == ' ' || c == '\t' || c == '\r')
         {
-            if (c == '\n')
-            {
-                advance(lexer);
-                return make_token(TOKEN_NEWLINE, "\n", 1);
-            }
             advance(lexer);
             continue;
+        }
+        if (c == '\n')
+        {
+            advance(lexer);
+            return make_token(TOKEN_NEWLINE, "\n", 1);
         }
 
         // Single-line comment
@@ -68,19 +84,10 @@ Token next_token(Lexer *lexer)
         }
 
         // Multiline comment ##
-        if (c == '#' && lexer->source[lexer->pos + 1] == '#')
+        if (c == '#' && lexer->pos + 1 < lexer->length && lexer->source[lexer->pos + 1] == '#')
         {
             lexer->pos += 2; // Skip initial ##
-            while (!(peek(lexer) == '#' && lexer->source[lexer->pos + 1] == '#'))
-            {
-                if (peek(lexer) == '\0')
-                {
-                    fprintf(stderr, "Unterminated multiline comment\n");
-                    exit(1);
-                }
-                advance(lexer);
-            }
-            lexer->pos += 2; // Skip closing ##
+            skip_multiline_comment(lexer);
             continue;
         }
 
