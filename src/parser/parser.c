@@ -6,6 +6,7 @@
 #include "types/value.h"
 #include "lexer/lexer.h"
 #include "types/object.h"
+#include "ast/ast.h"
 
 /* --- helpers --- */
 static Token current;
@@ -32,14 +33,6 @@ static void expect(TokenType type, const char *msg)
     }
 }
 
-/* --- AST constructors --- */
-static ASTNode *new_node(NodeType t)
-{
-    ASTNode *n = calloc(1, sizeof(ASTNode));
-    n->type = t;
-    return n;
-}
-
 /* --- parsing functions --- */
 static ASTNode *parse_set_stmt()
 {
@@ -50,6 +43,7 @@ static ASTNode *parse_set_stmt()
         fprintf(stderr, "Expected identifier after 'set'\n");
         exit(1);
     }
+
     n->set_name = strdup(current.value);
     advance_token();
 
@@ -60,7 +54,6 @@ static ASTNode *parse_set_stmt()
     }
     advance_token();
 
-    // Determine if assigning a literal or copying a variable
     if (current.type == TOKEN_STRING)
     {
         n->literal_value.type = VAL_STRING;
@@ -84,14 +77,37 @@ static ASTNode *parse_set_stmt()
     }
     else if (current.type == TOKEN_IDENTIFIER)
     {
-        n->copy_from_var = strdup(current.value);
-        n->is_copy = true;
+        ASTNode *base = new_node(NODE_ATTR_ACCESS);
+        base->object_name = strdup(current.value);
+        base->child_count = 0;
+        base->children = NULL;
         advance_token();
+
+        while (match(TOKEN_DOT))
+        {
+            if (current.type != TOKEN_IDENTIFIER)
+            {
+                fprintf(stderr, "Expected attribute name after '.'\n");
+                exit(1);
+            }
+
+            ASTNode *attr = new_node(NODE_ATTR_ACCESS);
+            attr->attr_name = strdup(current.value);
+            attr->child_count = 0;
+            attr->children = NULL;
+            advance_token();
+
+            // Append child
+            base->children = realloc(base->children, sizeof(ASTNode *) * (base->child_count + 1));
+            base->children[base->child_count++] = attr;
+        }
+
+        n->is_copy = true;
+        n->copy_from_attr = base;
     }
     else
     {
         fprintf(stderr, "Current: %s\n", current.value);
-
         fprintf(stderr, "Expected string, number, object, or identifier after 'to'\n");
         exit(1);
     }
@@ -107,23 +123,53 @@ static ASTNode *parse_func_call()
 
     expect(TOKEN_LPAREN, "'('");
 
-    // Parse one argument
-    if (current.type != TOKEN_IDENTIFIER)
-    {
-        fprintf(stderr, "Expected argument identifier\n");
-        exit(1);
-    }
+    // Only one argument for now
+    ASTNode *arg = parse_argument();
 
-    ASTNode *arg = new_node(NODE_VAR);
-    arg->set_name = strdup(current.value);
-    advance_token();
-
-    n->arg_count = 1;
-    n->args = calloc(1, sizeof(ASTNode *));
-    n->args[0] = arg;
+    n->child_count = 1;
+    n->children = calloc(1, sizeof(ASTNode *));
+    n->children[0] = arg;
 
     expect(TOKEN_RPAREN, "')'");
     return n;
+}
+
+ASTNode *parse_argument()
+{
+    if (current.type != TOKEN_IDENTIFIER)
+    {
+        fprintf(stderr, "Expected identifier or attribute access\n");
+        exit(1);
+    }
+
+    ASTNode *base = new_node(NODE_VAR);
+    base->set_name = strdup(current.value);
+    advance_token();
+
+    // Handle dotted access: person.name.first
+    while (match(TOKEN_DOT))
+    {
+        ASTNode *attr = new_node(NODE_ATTR_ACCESS);
+        attr->object_name = base->set_name;
+
+        if (current.type != TOKEN_IDENTIFIER)
+        {
+            fprintf(stderr, "Expected attribute name after '.'\n");
+            exit(1);
+        }
+
+        attr->attr_name = strdup(current.value);
+        advance_token();
+
+        // Replace base with attr node and store base as child
+        attr->child_count = 1;
+        attr->children = calloc(1, sizeof(ASTNode *));
+        attr->children[0] = base;
+
+        base = attr;
+    }
+
+    return base;
 }
 
 ASTNode *parse_object_literal()

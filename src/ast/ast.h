@@ -9,26 +9,38 @@
 typedef enum
 {
     NODE_SET,
+    NODE_VAR,
     NODE_FUNC_CALL,
-    NODE_VAR
+    NODE_ATTR_ACCESS
 } NodeType;
 
 typedef struct ASTNode
 {
     NodeType type;
 
-    /* —— SET —— */
-    char *set_name;      // Target variable
-    Value literal_value; // Direct value (string, number, object)
-    char *copy_from_var; // Name of variable to copy from
-    bool is_copy;
+    // Common
+    struct ASTNode **children;
+    int child_count;
 
-    /* —— FUNC_CALL —— */
+    // SET
+    char *set_name;
+    Value literal_value;
+    bool is_copy;
+    char *copy_from_var;            // for basic copy
+    struct ASTNode *copy_from_attr; // for chained attributes like person.name
+
+    // Attribute access
+    char *object_name;
+    char *attr_name;
+
+    // Function call
     char *func_name;
-    struct ASTNode **args;
-    int arg_count;
 
 } ASTNode;
+
+/* Helpers */
+ASTNode *new_node(NodeType type);
+void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */
 void free_ast(ASTNode **nodes, int count);
