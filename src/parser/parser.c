@@ -181,6 +181,10 @@ ASTNode *parse_object_literal()
 
     while (current.type != TOKEN_RBRACE)
     {
+        // Skip newlines
+        while (current.type == TOKEN_NEWLINE)
+            advance_token();
+
         if (count == cap)
         {
             cap *= 2;
@@ -228,7 +232,12 @@ ASTNode *parse_object_literal()
         count++;
 
         if (!match(TOKEN_COMMA))
+        {
+            // Allow trailing newline(s) after last value
+            while (current.type == TOKEN_NEWLINE)
+                advance_token();
             break;
+        }
     }
 
     expect(TOKEN_RBRACE, "'}'");
