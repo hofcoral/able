@@ -1,0 +1,5 @@
+set person to {name: { f_name: "Hof", l_name: "Coral"}, age: 22}
+
+set my_name to person.name
+
+pr(my_name.f_name)

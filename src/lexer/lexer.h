@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "types/value.h"
+
 typedef enum
 {
     TOKEN_EOF,
@@ -21,6 +23,7 @@ typedef enum
     TOKEN_RBRACE,
     TOKEN_COLON,
     TOKEN_COMMA,
+    TOKEN_DOT,
     TOKEN_NEWLINE,
     TOKEN_UNKNOWN
 } TokenType;
