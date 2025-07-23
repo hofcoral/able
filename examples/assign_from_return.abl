@@ -1,0 +1,3 @@
+set echo to (val): return val
+set result to echo("hello")
+pr(result)

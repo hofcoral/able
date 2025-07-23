@@ -15,6 +15,10 @@ static Token current;
 static Lexer *L;
 
 static ASTNode *parse_statement();
+static ASTNode *parse_return_stmt();
+static ASTNode *finish_func_call(ASTNode *callee);
+static ASTNode *parse_func_call();
+ASTNode *parse_argument();
 
 static void advance_token() { current = next_token(L); }
 
@@ -186,6 +190,11 @@ static void parse_literal_into_set(ASTNode *n)
     else if (current.type == TOKEN_IDENTIFIER)
     {
         ASTNode *src = parse_identifier_chain();
+        if (current.type == TOKEN_LPAREN)
+        {
+            src = finish_func_call(src);
+        }
+
         n->is_copy = true;
         if (src->type == NODE_VAR)
         {
@@ -242,13 +251,13 @@ static ASTNode *parse_set_stmt()
     return n;
 }
 
-static ASTNode *parse_func_call()
+static ASTNode *finish_func_call(ASTNode *callee)
 {
     ASTNode *n = new_node(NODE_FUNC_CALL);
-    n->func_callee = parse_identifier_chain();
+    n->func_callee = callee;
 
-    if (n->func_callee->type == NODE_VAR)
-        n->func_name = strdup(n->func_callee->set_name);
+    if (callee->type == NODE_VAR)
+        n->func_name = strdup(callee->set_name);
     else
         n->func_name = NULL;
 
@@ -273,11 +282,22 @@ static ASTNode *parse_func_call()
     return n;
 }
 
+static ASTNode *parse_func_call()
+{
+    ASTNode *callee = parse_identifier_chain();
+    return finish_func_call(callee);
+}
+
 ASTNode *parse_argument()
 {
     if (current.type == TOKEN_IDENTIFIER)
     {
-        return parse_identifier_chain();
+        ASTNode *node = parse_identifier_chain();
+        if (current.type == TOKEN_LPAREN)
+        {
+            return finish_func_call(node);
+        }
+        return node;
     }
     else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER || current.type == TOKEN_LBRACE)
     {
@@ -370,10 +390,20 @@ ASTNode *parse_object_literal()
     return obj_node;
 }
 
+static ASTNode *parse_return_stmt()
+{
+    ASTNode *n = new_node(NODE_RETURN);
+    ASTNode *expr = parse_argument();
+    add_child(n, expr);
+    return n;
+}
+
 static ASTNode *parse_statement()
 {
     if (match(TOKEN_SET))
         return parse_set_stmt();
+    if (match(TOKEN_RETURN))
+        return parse_return_stmt();
     if (current.type == TOKEN_IDENTIFIER)
         return parse_func_call();
 

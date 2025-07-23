@@ -12,7 +12,8 @@ typedef enum
     NODE_VAR,
     NODE_FUNC_CALL,
     NODE_ATTR_ACCESS,
-    NODE_LITERAL
+    NODE_LITERAL,
+    NODE_RETURN
 } NodeType;
 
 typedef struct ASTNode

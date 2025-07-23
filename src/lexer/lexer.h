@@ -17,6 +17,7 @@ typedef enum
     TOKEN_ASSIGN,
     TOKEN_GET,
     TOKEN_POST,
+    TOKEN_RETURN,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
     TOKEN_LBRACE,
