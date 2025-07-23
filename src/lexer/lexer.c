@@ -43,14 +43,32 @@ Token make_token(TokenType type, const char *start, size_t len)
 // === Core Tokenizer === //
 Token next_token(Lexer *lexer)
 {
-    while (isspace(peek(lexer)))
+    // Skip whitespace and comments
+    while (1)
     {
-        if (peek(lexer) == '\n')
+        char c = peek(lexer);
+
+        // Skip whitespace
+        if (isspace(c))
         {
+            if (c == '\n')
+            {
+                advance(lexer);
+                return make_token(TOKEN_NEWLINE, "\n", 1);
+            }
             advance(lexer);
-            return make_token(TOKEN_NEWLINE, "\n", 1);
+            continue;
         }
-        advance(lexer);
+
+        // Skip comments
+        if (c == '#')
+        {
+            while (peek(lexer) != '\n' && peek(lexer) != '\0')
+                advance(lexer);
+            continue; // Start the loop again
+        }
+
+        break;
     }
 
     char c = advance(lexer);
