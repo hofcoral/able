@@ -38,25 +38,16 @@ void run_ast(ASTNode **nodes, int count)
                     fprintf(stderr, "pr() takes 1 argument\n");
                     continue;
                 }
+
                 ASTNode *arg = n->args[0];
                 if (arg->type != NODE_VAR)
                 {
                     fprintf(stderr, "pr() only supports variables for now\n");
                     continue;
                 }
+
                 Value val = get_variable(arg->set_name);
-                if (val.type == VAL_STRING)
-                {
-                    printf("%s\n", val.str);
-                }
-                else if (val.type == VAL_NUMBER)
-                {
-                    printf("%f\n", val.num);
-                }
-                else
-                {
-                    printf("(undefined: %s)\n", arg->set_name);
-                }
+                print_value(val, 0);
             }
             else
             {

@@ -32,6 +32,6 @@ typedef struct Value
 // ————— FUNCTIONS ————— //
 Value clone_value(const Value *src);
 void free_value(Value val);
-void print_value(Value val); // For debugging
+void print_value(Value v, int indent); // For debugging
 
 #endif
