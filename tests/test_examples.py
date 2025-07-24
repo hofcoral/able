@@ -4,13 +4,16 @@ from pathlib import Path
 
 EXE = Path('build/able_exe')
 EXAMPLES = {
-    'examples/example.abl': 'Daniel 22.000000\n\n',
-    'examples/attr_set.abl': '30.000000\nWonderland\n',
-    'examples/main.abl': 'Hello World!\n',
-    'examples/objects.abl': 'First name: Hof\n\n',
-    'examples/return_example.abl': 'test\n',
-    'examples/assign_from_return.abl': 'hello\n',
-    'examples/bool.abl': 'true\nfalse\n',
+    'examples/variables/basic_assignment.abl': 'Daniel 22.000000\n\n',
+    'examples/objects/attr_set.abl': '30.000000\nWonderland\n',
+    'examples/variables/simple_print.abl': 'Hello World!\n',
+    'examples/objects/object_literal.abl': 'First name: Hof\n\n',
+    'examples/functions/return_example.abl': 'test\n',
+    'examples/functions/assign_from_return.abl': 'hello\n',
+    'examples/variables/bool.abl': 'true\nfalse\n',
+    'examples/variables/copy.abl': 'Alice\n',
+    'examples/functions/greet.abl': 'Alice Wonderland\n',
+    'examples/functions/choose_first.abl': 'x\n',
 }
 
 class ExampleTests(unittest.TestCase):
