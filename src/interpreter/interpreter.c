@@ -117,7 +117,7 @@ Value run_ast(ASTNode **nodes, int count)
             }
             else
             {
-                if (result.type == VAL_FUNCTION)
+                if (result.type == VAL_FUNCTION && result.func->env == NULL)
                 {
                     result.func->env = current_env;
                     env_retain(current_env);

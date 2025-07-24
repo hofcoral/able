@@ -29,6 +29,8 @@ typedef enum
     TOKEN_DOT,
     TOKEN_ARROW,
     TOKEN_NEWLINE,
+    TOKEN_INDENT,
+    TOKEN_DEDENT,
     TOKEN_UNKNOWN
 } TokenType;
 
@@ -43,7 +45,12 @@ typedef struct
     const char *source;
     size_t pos;
     size_t length;
+    int indent_stack[64];
+    int indent_top;
+    int pending_dedents;
+    int at_line_start;
 } Lexer;
 
 Token next_token(Lexer *lexer);
+void lexer_init(Lexer *lexer, const char *source);
 #endif

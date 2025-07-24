@@ -50,7 +50,8 @@ int main(int argc, char *argv[])
     const char *filename = argv[1];
     char *code = read_file(filename);
 
-    Lexer lexer = {code, 0, strlen(code)};
+    Lexer lexer;
+    lexer_init(&lexer, code);
 
     int stmt_count;
 
