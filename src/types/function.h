@@ -7,6 +7,7 @@ struct Env;
 
 typedef struct Function
 {
+    char *name;
     int param_count;
     char **params;
     ASTNode **body;

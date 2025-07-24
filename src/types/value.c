@@ -4,6 +4,7 @@
 
 #include "types/value.h"
 #include "types/object.h"
+#include "types/function.h"
 
 void free_value(Value v)
 {
@@ -104,7 +105,15 @@ void print_value(Value v, int indent)
         break;
 
     case VAL_FUNCTION:
-        printf("<function>");
+        if (v.func)
+        {
+            const char *fname = v.func->name ? v.func->name : "anonymous";
+            printf("<function: %s at %p>", fname, (void *)v.func);
+        }
+        else
+        {
+            printf("<function: NULL>");
+        }
         break;
 
     default:

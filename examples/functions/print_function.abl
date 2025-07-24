@@ -1,0 +1,2 @@
+set greet to (name): pr(name)
+pr(greet)

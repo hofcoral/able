@@ -43,8 +43,6 @@ static Value exec_func_call(ASTNode *n)
         {
             Value val = eval_node(n->children[j]);
             print_value(val, 0);
-            if (j < n->child_count - 1)
-                printf(" ");
         }
         printf("\n");
         Value undef = {.type = VAL_UNDEFINED};
