@@ -54,7 +54,18 @@ static Value exec_func_call(ASTNode *n)
         return undef;
     }
 
+    // Check correct arguments
     Function *fn = callee_val.func;
+
+    if (callee_val.func->param_count != n->child_count)
+    {
+        log_error("Function '%s' expects %d arguments, but got %d",
+                  n->func_name,
+                  fn->param_count,
+                  n->child_count);
+        exit(1);
+    }
+
     for (int p = 0; p < fn->param_count && p < n->child_count; ++p)
     {
         Value arg_val = eval_node(n->children[p]);
