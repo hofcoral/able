@@ -28,7 +28,7 @@ pr(name)
 ```
 
 ```
-./build/able_exe examples/example.abl
+./build/able_exe examples/variables/basic_assignment.abl
 ```
 
 ## Development
