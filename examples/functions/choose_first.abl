@@ -1,0 +1,3 @@
+set choose_first to (a, b): return a
+set result to choose_first("x", "y")
+pr(result)

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Build the Able interpreter and execute the test suite."""
+
 import subprocess
 import sys
 import unittest
@@ -6,8 +8,9 @@ import unittest
 
 def main():
     subprocess.run(["make"], check=True)
+
     suite = unittest.defaultTestLoader.discover("tests")
-    result = unittest.TextTestRunner().run(suite)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
     if not result.wasSuccessful():
         print("Not all tests passed.")
         sys.exit(1)

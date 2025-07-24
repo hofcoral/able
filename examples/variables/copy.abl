@@ -1,0 +1,3 @@
+set first to "Alice"
+set second to first
+pr(second)
