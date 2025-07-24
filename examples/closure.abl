@@ -1,0 +1,7 @@
+set outer to ():
+    set msg to "hello"
+    set inner to (): return msg
+    return inner
+
+set fn to outer()
+pr(fn())

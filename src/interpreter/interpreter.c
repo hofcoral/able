@@ -4,7 +4,7 @@
 
 #include "types/object.h"
 #include "ast/ast.h"
-#include "types/variable.h"
+#include "types/env.h"
 #include "types/function.h"
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
@@ -12,12 +12,17 @@
 
 static Value exec_func_call(ASTNode *n);
 
+void interpreter_set_env(Env *env)
+{
+    current_env = env;
+}
+
 static Value eval_node(ASTNode *n)
 {
     switch (n->type)
     {
     case NODE_VAR:
-        return get_variable(n->set_name);
+        return get_variable(current_env, n->set_name);
     case NODE_ATTR_ACCESS:
         return resolve_attribute_chain(n);
     case NODE_LITERAL:
@@ -66,13 +71,19 @@ static Value exec_func_call(ASTNode *n)
         exit(1);
     }
 
+    Env *call_env = env_create(fn->env);
     for (int p = 0; p < fn->param_count && p < n->child_count; ++p)
     {
         Value arg_val = eval_node(n->children[p]);
-        set_variable(fn->params[p], arg_val);
+        set_variable(call_env, fn->params[p], arg_val);
     }
-
-    return run_ast(fn->body, fn->body_count);
+    Env *prev_env = current_env;
+    current_env = call_env;
+    Value result = run_ast(fn->body, fn->body_count);
+    current_env = prev_env;
+    Value ret_val = clone_value(&result);
+    env_release(call_env);
+    return ret_val;
 }
 
 Value run_ast(ASTNode **nodes, int count)
@@ -106,7 +117,12 @@ Value run_ast(ASTNode **nodes, int count)
             }
             else
             {
-                set_variable(n->set_name, result);
+                if (result.type == VAL_FUNCTION)
+                {
+                    result.func->env = current_env;
+                    env_retain(current_env);
+                }
+                set_variable(current_env, n->set_name, result);
             }
         }
         else if (n->type == NODE_FUNC_CALL)
