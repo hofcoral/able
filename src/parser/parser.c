@@ -156,17 +156,42 @@ static Function *parse_function_def()
     expect(TOKEN_RPAREN, "')'");
     expect(TOKEN_COLON, "':'");
 
-    if (current.type == TOKEN_NEWLINE)
-        advance_token();
+    int body_cap = 4, body_count = 0;
+    ASTNode **body = malloc(sizeof(ASTNode *) * body_cap);
 
-    ASTNode **body = malloc(sizeof(ASTNode *));
-    body[0] = parse_statement();
+    if (match(TOKEN_NEWLINE))
+    {
+        expect(TOKEN_INDENT, "indent");
+
+        while (current.type != TOKEN_DEDENT && current.type != TOKEN_EOF)
+        {
+            if (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT)
+            {
+                advance_token();
+                continue;
+            }
+
+            if (body_count == body_cap)
+            {
+                body_cap *= 2;
+                body = realloc(body, sizeof(ASTNode *) * body_cap);
+            }
+
+            body[body_count++] = parse_statement();
+        }
+
+        expect(TOKEN_DEDENT, "dedent");
+    }
+    else
+    {
+        body[body_count++] = parse_statement();
+    }
 
     Function *fn = malloc(sizeof(Function));
     fn->param_count = count;
     fn->params = params;
     fn->body = body;
-    fn->body_count = 1;
+    fn->body_count = body_count;
     return fn;
 }
 
@@ -421,6 +446,8 @@ static ASTNode *parse_return_stmt()
 
 static ASTNode *parse_statement()
 {
+    while (current.type == TOKEN_NEWLINE)
+        advance_token();
     if (match(TOKEN_SET))
         return parse_set_stmt();
     if (match(TOKEN_RETURN))
@@ -443,7 +470,7 @@ ASTNode **parse_program(Lexer *lexer, int *out_count)
 
     while (current.type != TOKEN_EOF)
     {
-        if (current.type == TOKEN_NEWLINE)
+        if (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT || current.type == TOKEN_DEDENT)
         {
             advance_token();
             continue;

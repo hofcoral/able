@@ -5,12 +5,12 @@
 #include "types/object.h"
 #include "types/value.h"
 #include "ast/ast.h"
-#include "types/variable.h"
+#include "types/env.h"
 #include "utils/utils.h"
 
 Value resolve_attribute_chain(ASTNode *attr_node)
 {
-    Value base = get_variable(attr_node->object_name);
+    Value base = get_variable(current_env, attr_node->object_name);
     if (base.type != VAL_OBJECT)
     {
         log_error("Error: '%s' is not an object", attr_node->object_name);
@@ -34,7 +34,7 @@ Value resolve_attribute_chain(ASTNode *attr_node)
 
 void assign_attribute_chain(ASTNode *attr_node, Value val)
 {
-    Value base_val = get_variable(attr_node->object_name);
+    Value base_val = get_variable(current_env, attr_node->object_name);
     if (base_val.type != VAL_OBJECT)
     {
         log_error("Error: '%s' is not an object", attr_node->object_name);
