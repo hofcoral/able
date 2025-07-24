@@ -57,9 +57,64 @@ Token make_token(TokenType type, const char *start, size_t len)
     return token;
 }
 
+void lexer_init(Lexer *lexer, const char *source)
+{
+    lexer->source = source;
+    lexer->pos = 0;
+    lexer->length = strlen(source);
+    lexer->indent_stack[0] = 0;
+    lexer->indent_top = 0;
+    lexer->pending_dedents = 0;
+    lexer->at_line_start = 1;
+}
+
 // === Core Tokenizer === //
 Token next_token(Lexer *lexer)
 {
+    if (lexer->pending_dedents > 0)
+    {
+        lexer->pending_dedents--;
+        return make_token(TOKEN_DEDENT, "", 0);
+    }
+
+    if (lexer->at_line_start)
+    {
+        int indent = 0;
+        while (peek(lexer) == ' ')
+        {
+            advance(lexer);
+            indent++;
+        }
+
+        if (peek(lexer) == '\n')
+        {
+            advance(lexer);
+            return make_token(TOKEN_NEWLINE, "\n", 1);
+        }
+
+        if (indent > lexer->indent_stack[lexer->indent_top])
+        {
+            lexer->indent_top++;
+            lexer->indent_stack[lexer->indent_top] = indent;
+            lexer->at_line_start = 0;
+            return make_token(TOKEN_INDENT, "", 0);
+        }
+
+        if (indent < lexer->indent_stack[lexer->indent_top])
+        {
+            while (indent < lexer->indent_stack[lexer->indent_top])
+            {
+                lexer->indent_top--;
+                lexer->pending_dedents++;
+            }
+            lexer->at_line_start = 0;
+            lexer->pending_dedents--; /* return one dedent now */
+            return make_token(TOKEN_DEDENT, "", 0);
+        }
+
+        lexer->at_line_start = 0;
+    }
+
     while (1)
     {
         char c = peek(lexer);
@@ -73,6 +128,7 @@ Token next_token(Lexer *lexer)
         if (c == '\n')
         {
             advance(lexer);
+            lexer->at_line_start = 1;
             return make_token(TOKEN_NEWLINE, "\n", 1);
         }
 
@@ -97,9 +153,15 @@ Token next_token(Lexer *lexer)
 
     char c = advance(lexer);
 
-    // EOF
     if (c == '\0')
+    {
+        if (lexer->indent_top > 0)
+        {
+            lexer->indent_top--;
+            return make_token(TOKEN_DEDENT, "", 0);
+        }
         return make_token(TOKEN_EOF, "", 0);
+    }
 
     // Commands
     if (isalpha(c))

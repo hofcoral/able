@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "lexer/lexer.h"
-#include "types/variable.h"
+#include "types/env.h"
 #include "parser/parser.h"
 #include "interpreter/interpreter.h"
 #include "ast/ast.h"
@@ -50,17 +50,20 @@ int main(int argc, char *argv[])
     const char *filename = argv[1];
     char *code = read_file(filename);
 
-    Lexer lexer = {code, 0, strlen(code)};
+    Lexer lexer;
+    lexer_init(&lexer, code);
 
     int stmt_count;
 
     ASTNode **prog = parse_program(&lexer, &stmt_count);
 
+    Env *global_env = env_create(NULL);
+    interpreter_set_env(global_env);
     run_ast(prog, stmt_count);
 
     // Run "Garbage Collection"
     free_ast(prog, stmt_count);
-    free_vars();
+    env_release(global_env);
     free(code);
 
     return 0;
