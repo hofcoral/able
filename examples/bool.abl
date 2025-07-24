@@ -1,0 +1,4 @@
+set active to true
+pr(active)
+set active to false
+pr(active)

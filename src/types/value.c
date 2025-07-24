@@ -18,6 +18,8 @@ void free_value(Value v)
     case VAL_FUNCTION:
         /* functions are freed as part of AST cleanup */
         break;
+    case VAL_BOOL:
+        break;
     default:
         // VAL_NUMBER, VAL_NULL, VAL_UNDEFINED don't need manual freeing
         break;
@@ -43,6 +45,9 @@ Value clone_value(const Value *src)
     case VAL_FUNCTION:
         copy.func = src->func;
         break;
+    case VAL_BOOL:
+        copy.boolean = src->boolean;
+        break;
     case VAL_NULL:
     case VAL_UNDEFINED:
     default:
@@ -63,6 +68,10 @@ void print_value(Value v, int indent)
 
     case VAL_NUMBER:
         printf("%f", v.num);
+        break;
+
+    case VAL_BOOL:
+        printf(v.boolean ? "true" : "false");
         break;
 
     case VAL_OBJECT:
