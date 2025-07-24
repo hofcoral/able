@@ -188,10 +188,12 @@ static Function *parse_function_def()
     }
 
     Function *fn = malloc(sizeof(Function));
+    fn->name = NULL;
     fn->param_count = count;
     fn->params = params;
     fn->body = body;
     fn->body_count = body_count;
+    fn->env = NULL;
     return fn;
 }
 
@@ -277,6 +279,7 @@ static ASTNode *parse_set_stmt()
     if (current.type == TOKEN_LPAREN)
     {
         Function *fn = parse_function_def();
+        fn->name = strdup(n->set_name);
         n->literal_value.type = VAL_FUNCTION;
         n->literal_value.func = fn;
         n->is_copy = false;
