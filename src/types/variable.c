@@ -18,17 +18,20 @@ void set_variable(const char *name, Value val)
 
             // Assign deep-copied value
             vars[i].value.type = val.type;
-            switch (val.type)
-            {
-            case VAL_STRING:
-                vars[i].value.str = strdup(val.str);
+           switch (val.type)
+           {
+           case VAL_STRING:
+               vars[i].value.str = strdup(val.str);
+               break;
+           case VAL_NUMBER:
+               vars[i].value.num = val.num;
+               break;
+            case VAL_BOOL:
+                vars[i].value.boolean = val.boolean;
                 break;
-            case VAL_NUMBER:
-                vars[i].value.num = val.num;
-                break;
-            case VAL_OBJECT:
-                vars[i].value.obj = clone_object(val.obj);
-                break;
+           case VAL_OBJECT:
+               vars[i].value.obj = clone_object(val.obj);
+               break;
             case VAL_FUNCTION:
                 vars[i].value.func = val.func;
                 break;
@@ -42,17 +45,20 @@ void set_variable(const char *name, Value val)
     // New variable
     vars[var_count].name = strdup(name);
     vars[var_count].value.type = val.type;
-    switch (val.type)
-    {
-    case VAL_STRING:
-        vars[var_count].value.str = strdup(val.str);
+   switch (val.type)
+   {
+   case VAL_STRING:
+       vars[var_count].value.str = strdup(val.str);
+       break;
+   case VAL_NUMBER:
+       vars[var_count].value.num = val.num;
+       break;
+    case VAL_BOOL:
+        vars[var_count].value.boolean = val.boolean;
         break;
-    case VAL_NUMBER:
-        vars[var_count].value.num = val.num;
-        break;
-    case VAL_OBJECT:
-        vars[var_count].value.obj = clone_object(val.obj);
-        break;
+   case VAL_OBJECT:
+       vars[var_count].value.obj = clone_object(val.obj);
+       break;
     case VAL_FUNCTION:
         vars[var_count].value.func = val.func;
         break;

@@ -10,6 +10,7 @@ EXAMPLES = {
     'examples/objects.abl': 'First name: Hof\n\n',
     'examples/return_example.abl': 'test\n',
     'examples/assign_from_return.abl': 'hello\n',
+    'examples/bool.abl': 'true\nfalse\n',
 }
 
 class ExampleTests(unittest.TestCase):

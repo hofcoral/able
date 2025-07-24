@@ -122,6 +122,10 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_POST, start, len);
         if (strncmp(start, "return", len) == 0)
             return make_token(TOKEN_RETURN, start, len);
+        if (strncmp(start, "true", len) == 0)
+            return make_token(TOKEN_TRUE, start, len);
+        if (strncmp(start, "false", len) == 0)
+            return make_token(TOKEN_FALSE, start, len);
 
         return make_token(TOKEN_IDENTIFIER, start, len);
     }

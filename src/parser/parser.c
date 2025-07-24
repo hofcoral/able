@@ -101,6 +101,12 @@ static ASTNode *parse_literal_node()
         n->literal_value.num = atof(current.value);
         advance_token();
     }
+    else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
+    {
+        n->literal_value.type = VAL_BOOL;
+        n->literal_value.boolean = (current.type == TOKEN_TRUE);
+        advance_token();
+    }
     else if (current.type == TOKEN_LBRACE)
     {
         ASTNode *obj = parse_object_literal();
@@ -180,6 +186,13 @@ static void parse_literal_into_set(ASTNode *n)
         n->is_copy = false;
         advance_token();
     }
+    else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
+    {
+        n->literal_value.type = VAL_BOOL;
+        n->literal_value.boolean = (current.type == TOKEN_TRUE);
+        n->is_copy = false;
+        advance_token();
+    }
     else if (current.type == TOKEN_LBRACE)
     {
         ASTNode *obj_node = parse_object_literal();
@@ -209,7 +222,7 @@ static void parse_literal_into_set(ASTNode *n)
     else
     {
         log_error("Current: %s", current.value);
-        log_error("Expected string, number, object, or identifier after 'to'");
+        log_error("Expected string, number, boolean, object, or identifier after 'to'");
         exit(1);
     }
 }
@@ -299,7 +312,9 @@ ASTNode *parse_argument()
         }
         return node;
     }
-    else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER || current.type == TOKEN_LBRACE)
+    else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER ||
+             current.type == TOKEN_TRUE || current.type == TOKEN_FALSE ||
+             current.type == TOKEN_LBRACE)
     {
         return parse_literal_node();
     }
@@ -349,6 +364,12 @@ ASTNode *parse_object_literal()
         {
             val.type = VAL_NUMBER;
             val.num = atof(current.value);
+            advance_token();
+        }
+        else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
+        {
+            val.type = VAL_BOOL;
+            val.boolean = (current.type == TOKEN_TRUE);
             advance_token();
         }
         else if (current.type == TOKEN_LBRACE)
