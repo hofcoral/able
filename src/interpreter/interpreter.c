@@ -29,6 +29,48 @@ static Value eval_node(ASTNode *n)
         return clone_value(&n->literal_value);
     case NODE_FUNC_CALL:
         return exec_func_call(n);
+    case NODE_BINARY:
+    {
+        Value left = eval_node(n->children[0]);
+        Value right = eval_node(n->children[1]);
+        if (left.type == VAL_NUMBER && right.type == VAL_NUMBER)
+        {
+            Value res = {.type = VAL_NUMBER};
+            switch (n->binary_op)
+            {
+            case '+':
+                res.num = left.num + right.num;
+                break;
+            case '-':
+                res.num = left.num - right.num;
+                break;
+            case '*':
+                res.num = left.num * right.num;
+                break;
+            case '/':
+                res.num = right.num != 0 ? left.num / right.num : 0;
+                break;
+            default:
+                log_error("Unknown operator");
+                exit(1);
+            }
+            return res;
+        }
+        if (n->binary_op == '+' && left.type == VAL_STRING && right.type == VAL_STRING)
+        {
+            size_t len1 = strlen(left.str);
+            size_t len2 = strlen(right.str);
+            char *buf = malloc(len1 + len2 + 1);
+            memcpy(buf, left.str, len1);
+            memcpy(buf + len1, right.str, len2);
+            buf[len1 + len2] = '\0';
+            Value res = {.type = VAL_STRING, .str = buf};
+            return res;
+        }
+
+        log_error("Type error in binary expression");
+        exit(1);
+    }
     default:
         log_error("Unsupported eval node type");
         exit(1);
@@ -93,21 +135,7 @@ Value run_ast(ASTNode **nodes, int count)
 
         if (n->type == NODE_SET)
         {
-            Value result;
-            if (n->is_copy)
-            {
-                if (n->copy_from_attr)
-                    result = eval_node(n->copy_from_attr);
-                else
-                {
-                    ASTNode temp = {.type = NODE_VAR, .set_name = n->copy_from_var};
-                    result = eval_node(&temp);
-                }
-            }
-            else
-            {
-                result = clone_value(&n->literal_value);
-            }
+            Value result = eval_node(n->children[0]);
 
             if (n->set_attr)
             {

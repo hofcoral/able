@@ -230,8 +230,16 @@ Token next_token(Lexer *lexer)
         return make_token(TOKEN_RPAREN, ")", 1);
     if (c == '.')
         return make_token(TOKEN_DOT, ".", 1);
+    if (c == '+')
+        return make_token(TOKEN_PLUS, "+", 1);
     if (c == '-' && match(lexer, '>'))
         return make_token(TOKEN_ARROW, "->", 2);
+    if (c == '-')
+        return make_token(TOKEN_MINUS, "-", 1);
+    if (c == '*')
+        return make_token(TOKEN_STAR, "*", 1);
+    if (c == '/')
+        return make_token(TOKEN_SLASH, "/", 1);
 
     return make_token(TOKEN_UNKNOWN, &c, 1);
 }

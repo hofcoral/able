@@ -9,7 +9,6 @@
 /* entry-point */
 ASTNode **parse_program(Lexer *lexer, int *out_count);
 ASTNode *parse_object_literal();
-ASTNode *parse_argument(); // Add this line
 
 /* utility */
 void free_ast(ASTNode **nodes, int count);

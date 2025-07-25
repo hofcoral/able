@@ -14,6 +14,7 @@ EXAMPLES = {
     'examples/variables/copy.abl': 'Alice\n',
     'examples/functions/greet.abl': 'AliceWonderland\n',
     'examples/functions/choose_first.abl': 'x\n',
+    'examples/variables/math.abl': '5.000000\nHello World\n',
 }
 
 class ExampleTests(unittest.TestCase):

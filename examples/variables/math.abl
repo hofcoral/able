@@ -1,0 +1,4 @@
+set num to 1 + 2 * 3 - 4 / 2
+pr(num)
+set greeting to "Hello " + "World"
+pr(greeting)
