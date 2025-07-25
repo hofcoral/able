@@ -18,6 +18,7 @@ static ASTNode *parse_statement();
 static ASTNode *parse_return_stmt();
 static ASTNode *finish_func_call(ASTNode *callee);
 static ASTNode *parse_func_call();
+static ASTNode *parse_expression();
 ASTNode *parse_argument();
 
 static void advance_token() { current = next_token(L); }
@@ -197,62 +198,6 @@ static Function *parse_function_def()
     return fn;
 }
 
-static void parse_literal_into_set(ASTNode *n)
-{
-    if (current.type == TOKEN_STRING)
-    {
-        n->literal_value.type = VAL_STRING;
-        n->literal_value.str = strdup(current.value);
-        n->is_copy = false;
-        advance_token();
-    }
-    else if (current.type == TOKEN_NUMBER)
-    {
-        n->literal_value.type = VAL_NUMBER;
-        n->literal_value.num = atof(current.value);
-        n->is_copy = false;
-        advance_token();
-    }
-    else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
-    {
-        n->literal_value.type = VAL_BOOL;
-        n->literal_value.boolean = (current.type == TOKEN_TRUE);
-        n->is_copy = false;
-        advance_token();
-    }
-    else if (current.type == TOKEN_LBRACE)
-    {
-        ASTNode *obj_node = parse_object_literal();
-        n->literal_value = obj_node->literal_value;
-        n->is_copy = false;
-        free(obj_node);
-    }
-    else if (current.type == TOKEN_IDENTIFIER)
-    {
-        ASTNode *src = parse_identifier_chain();
-        if (current.type == TOKEN_LPAREN)
-        {
-            src = finish_func_call(src);
-        }
-
-        n->is_copy = true;
-        if (src->type == NODE_VAR)
-        {
-            n->copy_from_var = src->set_name;
-            free(src);
-        }
-        else
-        {
-            n->copy_from_attr = src;
-        }
-    }
-    else
-    {
-        log_error("Current: %s", current.value);
-        log_error("Expected string, number, boolean, object, or identifier after 'to'");
-        exit(1);
-    }
-}
 
 static ASTNode *parse_set_stmt()
 {
@@ -278,16 +223,35 @@ static ASTNode *parse_set_stmt()
 
     if (current.type == TOKEN_LPAREN)
     {
-        Function *fn = parse_function_def();
-        fn->name = strdup(n->set_name);
-        n->literal_value.type = VAL_FUNCTION;
-        n->literal_value.func = fn;
-        n->is_copy = false;
+        // Determine if this is a function definition by peeking for ':' after ')'
+        size_t save_pos = L->pos;
+        int is_func = 0;
+        int depth = 1;
+        while (save_pos < L->length && depth > 0)
+        {
+            char c = L->source[save_pos++];
+            if (c == '(')
+                depth++;
+            else if (c == ')')
+                depth--;
+        }
+        if (depth == 0 && save_pos < L->length && L->source[save_pos] == ':')
+            is_func = 1;
+
+        if (is_func)
+        {
+            Function *fn = parse_function_def();
+            fn->name = strdup(n->set_name);
+            ASTNode *lit = new_node(NODE_LITERAL);
+            lit->literal_value.type = VAL_FUNCTION;
+            lit->literal_value.func = fn;
+            add_child(n, lit);
+            return n;
+        }
     }
-    else
-    {
-        parse_literal_into_set(n);
-    }
+
+    ASTNode *expr = parse_expression();
+    add_child(n, expr);
 
     return n;
 }
@@ -329,15 +293,67 @@ static ASTNode *parse_func_call()
     return finish_func_call(callee);
 }
 
-ASTNode *parse_argument()
+static ASTNode *parse_primary();
+static ASTNode *parse_expression();
+
+static ASTNode *parse_unary()
+{
+    if (match(TOKEN_MINUS))
+    {
+        ASTNode *right = parse_unary();
+        ASTNode *zero = new_node(NODE_LITERAL);
+        zero->literal_value.type = VAL_NUMBER;
+        zero->literal_value.num = 0;
+        ASTNode *n = new_node(NODE_BINARY);
+        n->binary_op = '-';
+        add_child(n, zero);
+        add_child(n, right);
+        return n;
+    }
+    return parse_primary();
+}
+
+static ASTNode *parse_factor()
+{
+    ASTNode *node = parse_unary();
+    while (current.type == TOKEN_STAR || current.type == TOKEN_SLASH || current.type == TOKEN_PERCENT)
+    {
+        char op = current.value[0];
+        advance_token();
+        ASTNode *right = parse_unary();
+        ASTNode *bin = new_node(NODE_BINARY);
+        bin->binary_op = op;
+        add_child(bin, node);
+        add_child(bin, right);
+        node = bin;
+    }
+    return node;
+}
+
+static ASTNode *parse_expression()
+{
+    ASTNode *node = parse_factor();
+    while (current.type == TOKEN_PLUS || current.type == TOKEN_MINUS)
+    {
+        char op = current.value[0];
+        advance_token();
+        ASTNode *right = parse_factor();
+        ASTNode *bin = new_node(NODE_BINARY);
+        bin->binary_op = op;
+        add_child(bin, node);
+        add_child(bin, right);
+        node = bin;
+    }
+    return node;
+}
+
+static ASTNode *parse_primary()
 {
     if (current.type == TOKEN_IDENTIFIER)
     {
         ASTNode *node = parse_identifier_chain();
         if (current.type == TOKEN_LPAREN)
-        {
             return finish_func_call(node);
-        }
         return node;
     }
     else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER ||
@@ -346,9 +362,20 @@ ASTNode *parse_argument()
     {
         return parse_literal_node();
     }
+    else if (match(TOKEN_LPAREN))
+    {
+        ASTNode *expr = parse_expression();
+        expect(TOKEN_RPAREN, ")");
+        return expr;
+    }
 
-    log_error("Invalid argument");
+    log_error("Invalid expression");
     exit(1);
+}
+
+ASTNode *parse_argument()
+{
+    return parse_expression();
 }
 
 ASTNode *parse_object_literal()
@@ -442,7 +469,7 @@ ASTNode *parse_object_literal()
 static ASTNode *parse_return_stmt()
 {
     ASTNode *n = new_node(NODE_RETURN);
-    ASTNode *expr = parse_argument();
+    ASTNode *expr = parse_expression();
     add_child(n, expr);
     return n;
 }

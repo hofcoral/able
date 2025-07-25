@@ -13,7 +13,8 @@ typedef enum
     NODE_FUNC_CALL,
     NODE_ATTR_ACCESS,
     NODE_LITERAL,
-    NODE_RETURN
+    NODE_RETURN,
+    NODE_BINARY
 } NodeType;
 
 typedef struct ASTNode
@@ -27,10 +28,6 @@ typedef struct ASTNode
     // SET
     char *set_name;
     struct ASTNode *set_attr; // destination attribute chain if assigning to attr
-    Value literal_value;
-    bool is_copy;
-    char *copy_from_var;            // for basic copy
-    struct ASTNode *copy_from_attr; // for chained attributes like person.name
 
     // Attribute access
     char *object_name;
@@ -39,6 +36,12 @@ typedef struct ASTNode
     // Function call
     char *func_name;
     struct ASTNode *func_callee; // allow attribute based calls
+
+    // Binary expression
+    char binary_op;
+
+    // Literal value (used for NODE_LITERAL)
+    Value literal_value;
 
 } ASTNode;
 
