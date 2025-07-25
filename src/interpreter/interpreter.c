@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "types/object.h"
 #include "ast/ast.h"
@@ -49,6 +50,9 @@ static Value eval_node(ASTNode *n)
                 break;
             case '/':
                 res.num = right.num != 0 ? left.num / right.num : 0;
+                break;
+            case '%':
+                res.num = fmod(left.num, right.num);
                 break;
             default:
                 log_error("Unknown operator");

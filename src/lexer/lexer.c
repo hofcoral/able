@@ -238,6 +238,8 @@ Token next_token(Lexer *lexer)
         return make_token(TOKEN_MINUS, "-", 1);
     if (c == '*')
         return make_token(TOKEN_STAR, "*", 1);
+    if (c == '%')
+        return make_token(TOKEN_PERCENT, "%", 1);
     if (c == '/')
         return make_token(TOKEN_SLASH, "/", 1);
 

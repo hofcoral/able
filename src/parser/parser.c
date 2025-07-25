@@ -316,7 +316,7 @@ static ASTNode *parse_unary()
 static ASTNode *parse_factor()
 {
     ASTNode *node = parse_unary();
-    while (current.type == TOKEN_STAR || current.type == TOKEN_SLASH)
+    while (current.type == TOKEN_STAR || current.type == TOKEN_SLASH || current.type == TOKEN_PERCENT)
     {
         char op = current.value[0];
         advance_token();
