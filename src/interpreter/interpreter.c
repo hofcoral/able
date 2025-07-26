@@ -28,6 +28,24 @@ static double to_number(Value v)
     }
 }
 
+static bool to_boolean(Value v)
+{
+    switch (v.type)
+    {
+    case VAL_BOOL:
+        return v.boolean;
+    case VAL_NUMBER:
+        return v.num != 0;
+    case VAL_STRING:
+        return v.str && v.str[0] != '\0';
+    case VAL_NULL:
+    case VAL_UNDEFINED:
+        return false;
+    default:
+        return true;
+    }
+}
+
 static bool strict_equal(Value a, Value b)
 {
     if (a.type != b.type)
@@ -139,6 +157,25 @@ static Value eval_node(ASTNode *n)
         log_error("Type error in binary expression");
         exit(1);
     }
+    case NODE_IF:
+    {
+        Value cond = eval_node(n->children[0]);
+        if (to_boolean(cond))
+        {
+            return run_ast(n->children[1]->children, n->children[1]->child_count);
+        }
+        if (n->child_count >= 3)
+        {
+            ASTNode *else_node = n->children[2];
+            if (else_node->type == NODE_IF)
+                return eval_node(else_node);
+            return run_ast(else_node->children, else_node->child_count);
+        }
+        Value undef = {.type = VAL_UNDEFINED};
+        return undef;
+    }
+    case NODE_BLOCK:
+        return run_ast(n->children, n->child_count);
     default:
         log_error("Unsupported eval node type");
         exit(1);
@@ -169,6 +206,18 @@ static Value exec_func_call(ASTNode *n)
         Value arg = eval_node(n->children[0]);
         const char *name = value_type_name(arg.type);
         Value res = {.type = VAL_STRING, .str = strdup(name)};
+        return res;
+    }
+
+    if (n->func_callee->type == NODE_VAR && strcmp(n->func_callee->set_name, "bool") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_error("bool() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        Value res = {.type = VAL_BOOL, .boolean = to_boolean(arg)};
         return res;
     }
 
@@ -236,10 +285,35 @@ Value run_ast(ASTNode **nodes, int count)
         {
             exec_func_call(n);
         }
+        else if (n->type == NODE_IF)
+        {
+            Value cond = eval_node(n->children[0]);
+            if (to_boolean(cond))
+            {
+                last = run_ast(n->children[1]->children, n->children[1]->child_count);
+            }
+            else if (n->child_count >= 3)
+            {
+                ASTNode *else_node = n->children[2];
+                if (else_node->type == NODE_IF)
+                {
+                    Value res = eval_node(else_node);
+                    last = res;
+                }
+                else
+                {
+                    last = run_ast(else_node->children, else_node->child_count);
+                }
+            }
+        }
         else if (n->type == NODE_RETURN)
         {
             last = eval_node(n->children[0]);
             return last;
+        }
+        else if (n->type == NODE_BLOCK)
+        {
+            last = run_ast(n->children, n->child_count);
         }
     }
 

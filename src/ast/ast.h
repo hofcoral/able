@@ -14,7 +14,9 @@ typedef enum
     NODE_ATTR_ACCESS,
     NODE_LITERAL,
     NODE_RETURN,
-    NODE_BINARY
+    NODE_BINARY,
+    NODE_IF,
+    NODE_BLOCK
 } NodeType;
 
 typedef enum
