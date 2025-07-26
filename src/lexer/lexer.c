@@ -215,7 +215,15 @@ Token next_token(Lexer *lexer)
 
     // General operators
     if (c == '=')
+    {
+        if (match(lexer, '='))
+        {
+            if (match(lexer, '='))
+                return make_token(TOKEN_STRICT_EQ, "===", 3);
+            return make_token(TOKEN_EQ, "==", 2);
+        }
         return make_token(TOKEN_ASSIGN, "=", 1);
+    }
     if (c == '{')
         return make_token(TOKEN_LBRACE, "{", 1);
     if (c == '}')
