@@ -176,6 +176,12 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_SET, start, len);
         if (len == 2 && strncmp(start, "to", len) == 0)
             return make_token(TOKEN_TO, start, len);
+        if (len == 2 && strncmp(start, "if", len) == 0)
+            return make_token(TOKEN_IF, start, len);
+        if (len == 4 && strncmp(start, "elif", len) == 0)
+            return make_token(TOKEN_ELIF, start, len);
+        if (len == 4 && strncmp(start, "else", len) == 0)
+            return make_token(TOKEN_ELSE, start, len);
         if (len == 2 && strncmp(start, "pr", len) == 0)
             return make_token(TOKEN_IDENTIFIER, start, len);
         if (len == 3 && strncmp(start, "GET", len) == 0)

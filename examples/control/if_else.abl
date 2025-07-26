@@ -1,0 +1,7 @@
+set x to ""
+if x:
+    pr("A")
+elif x == "":
+    pr("B")
+else:
+    pr("C")

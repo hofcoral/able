@@ -20,6 +20,8 @@ static ASTNode *finish_func_call(ASTNode *callee);
 static ASTNode *parse_func_call();
 static ASTNode *parse_expression();
 static ASTNode *parse_arithmetic();
+static ASTNode *parse_block();
+static ASTNode *parse_if_stmt();
 ASTNode *parse_argument();
 
 static void advance_token() { current = next_token(L); }
@@ -517,6 +519,55 @@ static ASTNode *parse_return_stmt()
     return n;
 }
 
+static ASTNode *parse_block()
+{
+    ASTNode *block = new_node(NODE_BLOCK);
+    if (match(TOKEN_NEWLINE))
+    {
+        expect(TOKEN_INDENT, "indent");
+        while (current.type != TOKEN_DEDENT && current.type != TOKEN_EOF)
+        {
+            if (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT)
+            {
+                advance_token();
+                continue;
+            }
+            ASTNode *stmt = parse_statement();
+            add_child(block, stmt);
+        }
+        expect(TOKEN_DEDENT, "dedent");
+    }
+    else
+    {
+        ASTNode *stmt = parse_statement();
+        add_child(block, stmt);
+    }
+    return block;
+}
+
+static ASTNode *parse_if_stmt()
+{
+    ASTNode *node = new_node(NODE_IF);
+    ASTNode *cond = parse_expression();
+    expect(TOKEN_COLON, "':'");
+    ASTNode *then_block = parse_block();
+    add_child(node, cond);
+    add_child(node, then_block);
+
+    if (match(TOKEN_ELIF))
+    {
+        ASTNode *elif_node = parse_if_stmt();
+        add_child(node, elif_node);
+    }
+    else if (match(TOKEN_ELSE))
+    {
+        expect(TOKEN_COLON, "':'");
+        ASTNode *else_block = parse_block();
+        add_child(node, else_block);
+    }
+    return node;
+}
+
 static ASTNode *parse_statement()
 {
     while (current.type == TOKEN_NEWLINE)
@@ -525,6 +576,8 @@ static ASTNode *parse_statement()
         return parse_set_stmt();
     if (match(TOKEN_RETURN))
         return parse_return_stmt();
+    if (match(TOKEN_IF))
+        return parse_if_stmt();
     if (current.type == TOKEN_IDENTIFIER)
         return parse_func_call();
 

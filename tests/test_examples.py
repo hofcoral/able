@@ -16,6 +16,8 @@ EXAMPLES = {
     'examples/functions/choose_first.abl': 'x\n',
     'examples/variables/math.abl': '5.000000\nHello World\n1.000000\n',
     'examples/variables/equality.abl': 'true\ntrue\nfalse\ntrue\n',
+    'examples/variables/bool_func.abl': 'false\ntrue\nfalse\n',
+    'examples/control/if_else.abl': 'B\n',
 }
 
 class ExampleTests(unittest.TestCase):

@@ -1,0 +1,3 @@
+pr(bool(0))
+pr(bool("x"))
+pr(bool(""))
