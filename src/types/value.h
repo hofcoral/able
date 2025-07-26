@@ -16,6 +16,7 @@ typedef enum
     VAL_STRING,
     VAL_OBJECT,
     VAL_FUNCTION,
+    VAL_TYPE_COUNT
 } ValueType;
 
 // ————— VALUE STRUCT ————— //
@@ -36,5 +37,6 @@ typedef struct Value
 Value clone_value(const Value *src);
 void free_value(Value val);
 void print_value(Value v, int indent); // For debugging
+const char *value_type_name(ValueType type);
 
 #endif

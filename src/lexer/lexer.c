@@ -172,22 +172,24 @@ Token next_token(Lexer *lexer)
 
         size_t len = &lexer->source[lexer->pos] - start;
 
-        if (strncmp(start, "set", len) == 0)
+        if (len == 3 && strncmp(start, "set", len) == 0)
             return make_token(TOKEN_SET, start, len);
-        if (strncmp(start, "to", len) == 0)
+        if (len == 2 && strncmp(start, "to", len) == 0)
             return make_token(TOKEN_TO, start, len);
-        if (strncmp(start, "pr", len) == 0)
+        if (len == 2 && strncmp(start, "pr", len) == 0)
             return make_token(TOKEN_IDENTIFIER, start, len);
-        if (strncmp(start, "GET", len) == 0)
+        if (len == 3 && strncmp(start, "GET", len) == 0)
             return make_token(TOKEN_GET, start, len);
-        if (strncmp(start, "POST", len) == 0)
+        if (len == 4 && strncmp(start, "POST", len) == 0)
             return make_token(TOKEN_POST, start, len);
-        if (strncmp(start, "return", len) == 0)
+        if (len == 6 && strncmp(start, "return", len) == 0)
             return make_token(TOKEN_RETURN, start, len);
-        if (strncmp(start, "true", len) == 0)
+        if (len == 4 && strncmp(start, "true", len) == 0)
             return make_token(TOKEN_TRUE, start, len);
-        if (strncmp(start, "false", len) == 0)
+        if (len == 5 && strncmp(start, "false", len) == 0)
             return make_token(TOKEN_FALSE, start, len);
+        if (len == 4 && strncmp(start, "null", len) == 0)
+            return make_token(TOKEN_NULL, start, len);
 
         return make_token(TOKEN_IDENTIFIER, start, len);
     }

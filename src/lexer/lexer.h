@@ -16,6 +16,7 @@ typedef enum
     TOKEN_STRING,
     TOKEN_TRUE,
     TOKEN_FALSE,
+    TOKEN_NULL,
     TOKEN_ASSIGN,
     TOKEN_GET,
     TOKEN_POST,

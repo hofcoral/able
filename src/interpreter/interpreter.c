@@ -159,6 +159,19 @@ static Value exec_func_call(ASTNode *n)
         return undef;
     }
 
+    if (n->func_callee->type == NODE_VAR && strcmp(n->func_callee->set_name, "type") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_error("type() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        const char *name = value_type_name(arg.type);
+        Value res = {.type = VAL_STRING, .str = strdup(name)};
+        return res;
+    }
+
     Value callee_val = eval_node(n->func_callee);
     if (callee_val.type != VAL_FUNCTION)
     {
