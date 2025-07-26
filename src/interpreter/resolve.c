@@ -19,12 +19,12 @@ Value resolve_attribute_chain(ASTNode *attr_node)
 
     for (int i = 0; i < attr_node->child_count; ++i)
     {
-        attr_node = attr_node->children[i];
-        base = object_get(base.obj, attr_node->attr_name);
+        ASTNode *seg = attr_node->children[i];
+        base = object_get(base.obj, seg->attr_name);
 
         if (i < attr_node->child_count - 1 && base.type != VAL_OBJECT)
         {
-            log_error("Error: intermediate '%s' is not an object", attr_node->attr_name);
+            log_error("Error: intermediate '%s' is not an object", seg->attr_name);
             exit(1);
         }
     }
