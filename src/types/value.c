@@ -6,6 +6,23 @@
 #include "types/object.h"
 #include "types/function.h"
 
+static const char *TYPE_NAMES[VAL_TYPE_COUNT] = {
+    "UNDEFINED",
+    "NULL",
+    "BOOLEAN",
+    "NUMBER",
+    "STRING",
+    "OBJECT",
+    "FUNCTION"
+};
+
+const char *value_type_name(ValueType type)
+{
+    if (type < 0 || type >= VAL_TYPE_COUNT)
+        return "UNKNOWN";
+    return TYPE_NAMES[type];
+}
+
 void free_value(Value v)
 {
     switch (v.type)

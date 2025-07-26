@@ -109,6 +109,11 @@ static ASTNode *parse_literal_node()
         n->literal_value.boolean = (current.type == TOKEN_TRUE);
         advance_token();
     }
+    else if (current.type == TOKEN_NULL)
+    {
+        n->literal_value.type = VAL_NULL;
+        advance_token();
+    }
     else if (current.type == TOKEN_LBRACE)
     {
         ASTNode *obj = parse_object_literal();
@@ -382,7 +387,7 @@ static ASTNode *parse_primary()
     }
     else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER ||
              current.type == TOKEN_TRUE || current.type == TOKEN_FALSE ||
-             current.type == TOKEN_LBRACE)
+             current.type == TOKEN_NULL || current.type == TOKEN_LBRACE)
     {
         return parse_literal_node();
     }
@@ -451,6 +456,11 @@ ASTNode *parse_object_literal()
             val.boolean = (current.type == TOKEN_TRUE);
             advance_token();
         }
+        else if (current.type == TOKEN_NULL)
+        {
+            val.type = VAL_NULL;
+            advance_token();
+        }
         else if (current.type == TOKEN_LBRACE)
         {
             ASTNode *inner_obj_node = parse_object_literal();
@@ -493,8 +503,17 @@ ASTNode *parse_object_literal()
 static ASTNode *parse_return_stmt()
 {
     ASTNode *n = new_node(NODE_RETURN);
-    ASTNode *expr = parse_expression();
-    add_child(n, expr);
+    if (current.type == TOKEN_NEWLINE || current.type == TOKEN_DEDENT || current.type == TOKEN_EOF)
+    {
+        ASTNode *undef = new_node(NODE_LITERAL);
+        undef->literal_value.type = VAL_UNDEFINED;
+        add_child(n, undef);
+    }
+    else
+    {
+        ASTNode *expr = parse_expression();
+        add_child(n, expr);
+    }
     return n;
 }
 
