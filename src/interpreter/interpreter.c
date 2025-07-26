@@ -13,6 +13,62 @@
 
 static Value exec_func_call(ASTNode *n);
 
+static double to_number(Value v)
+{
+    switch (v.type)
+    {
+    case VAL_NUMBER:
+        return v.num;
+    case VAL_BOOL:
+        return v.boolean ? 1 : 0;
+    case VAL_STRING:
+        return atof(v.str);
+    default:
+        return NAN;
+    }
+}
+
+static bool strict_equal(Value a, Value b)
+{
+    if (a.type != b.type)
+        return false;
+
+    switch (a.type)
+    {
+    case VAL_NUMBER:
+        return a.num == b.num;
+    case VAL_STRING:
+        return strcmp(a.str, b.str) == 0;
+    case VAL_BOOL:
+        return a.boolean == b.boolean;
+    case VAL_OBJECT:
+        return a.obj == b.obj;
+    case VAL_FUNCTION:
+        return a.func == b.func;
+    case VAL_NULL:
+    case VAL_UNDEFINED:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool loose_equal(Value a, Value b)
+{
+    if (a.type == b.type)
+        return strict_equal(a, b);
+
+    if ((a.type == VAL_NUMBER || a.type == VAL_STRING || a.type == VAL_BOOL) &&
+        (b.type == VAL_NUMBER || b.type == VAL_STRING || b.type == VAL_BOOL))
+    {
+        double na = to_number(a);
+        double nb = to_number(b);
+        return na == nb;
+    }
+
+    return false;
+}
+
 void interpreter_set_env(Env *env)
 {
     current_env = env;
@@ -34,24 +90,32 @@ static Value eval_node(ASTNode *n)
     {
         Value left = eval_node(n->children[0]);
         Value right = eval_node(n->children[1]);
+        if (n->binary_op == OP_EQ || n->binary_op == OP_STRICT_EQ)
+        {
+            bool eq = n->binary_op == OP_EQ ? loose_equal(left, right)
+                                            : strict_equal(left, right);
+            Value res = {.type = VAL_BOOL, .boolean = eq};
+            return res;
+        }
+
         if (left.type == VAL_NUMBER && right.type == VAL_NUMBER)
         {
             Value res = {.type = VAL_NUMBER};
             switch (n->binary_op)
             {
-            case '+':
+            case OP_ADD:
                 res.num = left.num + right.num;
                 break;
-            case '-':
+            case OP_SUB:
                 res.num = left.num - right.num;
                 break;
-            case '*':
+            case OP_MUL:
                 res.num = left.num * right.num;
                 break;
-            case '/':
+            case OP_DIV:
                 res.num = right.num != 0 ? left.num / right.num : 0;
                 break;
-            case '%':
+            case OP_MOD:
                 res.num = fmod(left.num, right.num);
                 break;
             default:
@@ -60,7 +124,7 @@ static Value eval_node(ASTNode *n)
             }
             return res;
         }
-        if (n->binary_op == '+' && left.type == VAL_STRING && right.type == VAL_STRING)
+        if (n->binary_op == OP_ADD && left.type == VAL_STRING && right.type == VAL_STRING)
         {
             size_t len1 = strlen(left.str);
             size_t len2 = strlen(right.str);

@@ -19,6 +19,7 @@ static ASTNode *parse_return_stmt();
 static ASTNode *finish_func_call(ASTNode *callee);
 static ASTNode *parse_func_call();
 static ASTNode *parse_expression();
+static ASTNode *parse_arithmetic();
 ASTNode *parse_argument();
 
 static void advance_token() { current = next_token(L); }
@@ -305,7 +306,7 @@ static ASTNode *parse_unary()
         zero->literal_value.type = VAL_NUMBER;
         zero->literal_value.num = 0;
         ASTNode *n = new_node(NODE_BINARY);
-        n->binary_op = '-';
+        n->binary_op = OP_SUB;
         add_child(n, zero);
         add_child(n, right);
         return n;
@@ -318,7 +319,13 @@ static ASTNode *parse_factor()
     ASTNode *node = parse_unary();
     while (current.type == TOKEN_STAR || current.type == TOKEN_SLASH || current.type == TOKEN_PERCENT)
     {
-        char op = current.value[0];
+        BinaryOp op;
+        if (current.type == TOKEN_STAR)
+            op = OP_MUL;
+        else if (current.type == TOKEN_SLASH)
+            op = OP_DIV;
+        else
+            op = OP_MOD;
         advance_token();
         ASTNode *right = parse_unary();
         ASTNode *bin = new_node(NODE_BINARY);
@@ -330,14 +337,31 @@ static ASTNode *parse_factor()
     return node;
 }
 
-static ASTNode *parse_expression()
+static ASTNode *parse_arithmetic()
 {
     ASTNode *node = parse_factor();
     while (current.type == TOKEN_PLUS || current.type == TOKEN_MINUS)
     {
-        char op = current.value[0];
+        BinaryOp op = current.type == TOKEN_PLUS ? OP_ADD : OP_SUB;
         advance_token();
         ASTNode *right = parse_factor();
+        ASTNode *bin = new_node(NODE_BINARY);
+        bin->binary_op = op;
+        add_child(bin, node);
+        add_child(bin, right);
+        node = bin;
+    }
+    return node;
+}
+
+static ASTNode *parse_expression()
+{
+    ASTNode *node = parse_arithmetic();
+    while (current.type == TOKEN_EQ || current.type == TOKEN_STRICT_EQ)
+    {
+        BinaryOp op = current.type == TOKEN_EQ ? OP_EQ : OP_STRICT_EQ;
+        advance_token();
+        ASTNode *right = parse_arithmetic();
         ASTNode *bin = new_node(NODE_BINARY);
         bin->binary_op = op;
         add_child(bin, node);

@@ -17,6 +17,17 @@ typedef enum
     NODE_BINARY
 } NodeType;
 
+typedef enum
+{
+    OP_ADD,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
+    OP_MOD,
+    OP_EQ,
+    OP_STRICT_EQ
+} BinaryOp;
+
 typedef struct ASTNode
 {
     NodeType type;
@@ -38,7 +49,7 @@ typedef struct ASTNode
     struct ASTNode *func_callee; // allow attribute based calls
 
     // Binary expression
-    char binary_op;
+    BinaryOp binary_op;
 
     // Literal value (used for NODE_LITERAL)
     Value literal_value;
