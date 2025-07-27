@@ -254,36 +254,35 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_GTE, ">=", 2, lexer->line, column);
         return make_token(TOKEN_GT, ">", 1, lexer->line, column);
     }
-    if (c == '[')
-        return make_token(TOKEN_LBRACKET, "[", 1, lexer->line, column);
-    if (c == ']')
-        return make_token(TOKEN_RBRACKET, "]", 1, lexer->line, column);
-    if (c == '{')
-        return make_token(TOKEN_LBRACE, "{", 1, lexer->line, column);
-    if (c == '}')
-        return make_token(TOKEN_RBRACE, "}", 1, lexer->line, column);
-    if (c == ':')
-        return make_token(TOKEN_COLON, ":", 1, lexer->line, column);
-    if (c == ',')
-        return make_token(TOKEN_COMMA, ",", 1, lexer->line, column);
-    if (c == '(')
-        return make_token(TOKEN_LPAREN, "(", 1, lexer->line, column);
-    if (c == ')')
-        return make_token(TOKEN_RPAREN, ")", 1, lexer->line, column);
-    if (c == '.')
-        return make_token(TOKEN_DOT, ".", 1, lexer->line, column);
-    if (c == '+')
-        return make_token(TOKEN_PLUS, "+", 1, lexer->line, column);
     if (c == '-' && match(lexer, '>'))
         return make_token(TOKEN_ARROW, "->", 2, lexer->line, column);
-    if (c == '-')
-        return make_token(TOKEN_MINUS, "-", 1, lexer->line, column);
-    if (c == '*')
-        return make_token(TOKEN_STAR, "*", 1, lexer->line, column);
-    if (c == '%')
-        return make_token(TOKEN_PERCENT, "%", 1, lexer->line, column);
-    if (c == '/')
-        return make_token(TOKEN_SLASH, "/", 1, lexer->line, column);
+
+    static const struct
+    {
+        char ch;
+        TokenType type;
+    } single_char_tokens[] = {
+        {'[', TOKEN_LBRACKET},
+        {']', TOKEN_RBRACKET},
+        {'{', TOKEN_LBRACE},
+        {'}', TOKEN_RBRACE},
+        {':', TOKEN_COLON},
+        {',', TOKEN_COMMA},
+        {'(', TOKEN_LPAREN},
+        {')', TOKEN_RPAREN},
+        {'.', TOKEN_DOT},
+        {'+', TOKEN_PLUS},
+        {'-', TOKEN_MINUS},
+        {'*', TOKEN_STAR},
+        {'%', TOKEN_PERCENT},
+        {'/', TOKEN_SLASH},
+    };
+
+    for (size_t i = 0; i < sizeof(single_char_tokens) / sizeof(single_char_tokens[0]); ++i)
+    {
+        if (c == single_char_tokens[i].ch)
+            return make_token(single_char_tokens[i].type, &lexer->source[start_pos], 1, lexer->line, column);
+    }
 
     return make_token(TOKEN_UNKNOWN, &c, 1, lexer->line, column);
 }
