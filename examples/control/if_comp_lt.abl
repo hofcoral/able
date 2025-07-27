@@ -1,0 +1,11 @@
+set x to 0
+if x < 1:
+    pr("lt")
+elif x > 5:
+    pr("gt")
+elif x <= 2:
+    pr("lte")
+elif x >= 3:
+    pr("gte")
+else:
+    pr("none")
