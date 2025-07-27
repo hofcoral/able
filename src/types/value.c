@@ -6,6 +6,7 @@
 #include "types/value.h"
 #include "types/object.h"
 #include "types/function.h"
+#include "types/list.h"
 
 static const char *TYPE_NAMES[VAL_TYPE_COUNT] = {
     "UNDEFINED",
@@ -14,7 +15,8 @@ static const char *TYPE_NAMES[VAL_TYPE_COUNT] = {
     "NUMBER",
     "STRING",
     "OBJECT",
-    "FUNCTION"
+    "FUNCTION",
+    "LIST"
 };
 
 const char *value_type_name(ValueType type)
@@ -33,6 +35,9 @@ void free_value(Value v)
         break;
     case VAL_OBJECT:
         free_object(v.obj);
+        break;
+    case VAL_LIST:
+        free_list(v.list);
         break;
     case VAL_FUNCTION:
         /* functions are freed as part of AST cleanup */
@@ -63,6 +68,9 @@ Value clone_value(const Value *src)
         break;
     case VAL_FUNCTION:
         copy.func = src->func;
+        break;
+    case VAL_LIST:
+        copy.list = clone_list(src->list);
         break;
     case VAL_BOOL:
         copy.boolean = src->boolean;
@@ -135,6 +143,16 @@ void print_value(Value v, int indent)
         {
             printf("<function: NULL>");
         }
+        break;
+    case VAL_LIST:
+        printf("[");
+        for (int i = 0; i < v.list->count; ++i)
+        {
+            print_value(v.list->items[i], indent);
+            if (i < v.list->count - 1)
+                printf(", ");
+        }
+        printf("]");
         break;
 
     default:

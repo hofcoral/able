@@ -1,0 +1,8 @@
+set lst to list()
+lst.append(1)
+lst.append(2)
+pr(lst.get(0))
+lst.remove(0)
+pr(lst.get(0))
+set extended to [1, 2] + [3]
+pr(extended.get(2))

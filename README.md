@@ -25,6 +25,11 @@ Execute an `.abl` file with:
 ```able
 set name to "Daniel"
 pr(name)
+
+# List usage
+set numbers to [1, 2]
+numbers.append(3)
+pr(numbers.get(2))
 ```
 
 ```

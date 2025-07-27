@@ -7,6 +7,7 @@
 #include "lexer/lexer.h"
 #include "types/object.h"
 #include "types/function.h"
+#include "types/list.h"
 #include "ast/ast.h"
 #include "utils/utils.h"
 
@@ -24,6 +25,7 @@ static ASTNode *parse_expression();
 static ASTNode *parse_arithmetic();
 static ASTNode *parse_block();
 static ASTNode *parse_if_stmt();
+static ASTNode *parse_list_literal();
 ASTNode *parse_argument();
 
 static void advance_token() {
@@ -129,6 +131,12 @@ static ASTNode *parse_literal_node()
         ASTNode *obj = parse_object_literal();
         n->literal_value = obj->literal_value;
         free(obj);
+    }
+    else if (current.type == TOKEN_LBRACKET)
+    {
+        ASTNode *lst = parse_list_literal();
+        n->literal_value = lst->literal_value;
+        free(lst);
     }
     else
     {
@@ -421,7 +429,8 @@ static ASTNode *parse_primary()
     }
     else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER ||
              current.type == TOKEN_TRUE || current.type == TOKEN_FALSE ||
-             current.type == TOKEN_NULL || current.type == TOKEN_LBRACE)
+             current.type == TOKEN_NULL || current.type == TOKEN_LBRACE ||
+             current.type == TOKEN_LBRACKET)
     {
         return parse_literal_node();
     }
@@ -534,6 +543,89 @@ ASTNode *parse_object_literal()
     obj_node->literal_value.obj = obj;
 
     return obj_node;
+}
+
+ASTNode *parse_list_literal()
+{
+    expect(TOKEN_LBRACKET, "'['");
+    int line = prev_line;
+    int col = prev_col;
+
+    int cap = 4, count = 0;
+    Value *items = malloc(sizeof(Value) * cap);
+
+    while (current.type != TOKEN_RBRACKET)
+    {
+        while (current.type == TOKEN_NEWLINE)
+            advance_token();
+
+        if (count == cap)
+        {
+            cap *= 2;
+            items = realloc(items, sizeof(Value) * cap);
+        }
+
+        if (current.type == TOKEN_STRING)
+        {
+            items[count].type = VAL_STRING;
+            items[count].str = strdup(current.value);
+            advance_token();
+        }
+        else if (current.type == TOKEN_NUMBER)
+        {
+            items[count].type = VAL_NUMBER;
+            items[count].num = atof(current.value);
+            advance_token();
+        }
+        else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
+        {
+            items[count].type = VAL_BOOL;
+            items[count].boolean = (current.type == TOKEN_TRUE);
+            advance_token();
+        }
+        else if (current.type == TOKEN_NULL)
+        {
+            items[count].type = VAL_NULL;
+            advance_token();
+        }
+        else if (current.type == TOKEN_LBRACE)
+        {
+            ASTNode *obj = parse_object_literal();
+            items[count] = obj->literal_value;
+            free(obj);
+        }
+        else if (current.type == TOKEN_LBRACKET)
+        {
+            ASTNode *lst = parse_list_literal();
+            items[count] = lst->literal_value;
+            free(lst);
+        }
+        else
+        {
+            log_script_error(current.line, current.column, "Expected literal value in list");
+            exit(1);
+        }
+
+        count++;
+        if (!match(TOKEN_COMMA))
+        {
+            while (current.type == TOKEN_NEWLINE)
+                advance_token();
+            break;
+        }
+    }
+
+    expect(TOKEN_RBRACKET, "]");
+
+    List *list = malloc(sizeof(List));
+    list->count = count;
+    list->capacity = cap;
+    list->items = items;
+
+    ASTNode *node = new_node(NODE_LITERAL, line, col);
+    node->literal_value.type = VAL_LIST;
+    node->literal_value.list = list;
+    return node;
 }
 
 static ASTNode *parse_return_stmt()

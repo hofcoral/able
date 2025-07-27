@@ -254,6 +254,10 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_GTE, ">=", 2, lexer->line, column);
         return make_token(TOKEN_GT, ">", 1, lexer->line, column);
     }
+    if (c == '[')
+        return make_token(TOKEN_LBRACKET, "[", 1, lexer->line, column);
+    if (c == ']')
+        return make_token(TOKEN_RBRACKET, "]", 1, lexer->line, column);
     if (c == '{')
         return make_token(TOKEN_LBRACE, "{", 1, lexer->line, column);
     if (c == '}')

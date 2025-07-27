@@ -26,6 +26,7 @@ void type_registry_init()
     register_type(type_create("string", sizeof(char*)));
     register_type(type_create("object", sizeof(void*))); // placeholder
     register_type(type_create("function", sizeof(void*))); // placeholder
+    register_type(type_create("list", sizeof(void*)));
 }
 
 void type_registry_cleanup()
