@@ -10,6 +10,8 @@ SRCS = \
     $(SRC_DIR)/parser/parser.c \
     $(SRC_DIR)/ast/ast.c \
     $(SRC_DIR)/types/object.c \
+    $(SRC_DIR)/types/type.c \
+    $(SRC_DIR)/types/type_registry.c \
     $(SRC_DIR)/types/value.c \
     $(SRC_DIR)/types/function.c \
     $(SRC_DIR)/types/env.c \

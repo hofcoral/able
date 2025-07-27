@@ -11,6 +11,7 @@
 #include "interpreter/interpreter.h"
 #include "interpreter/stack.h"
 #include "utils/utils.h"
+#include "types/type_registry.h"
 
 static CallStack call_stack;
 
@@ -93,10 +94,12 @@ static bool loose_equal(Value a, Value b)
 void interpreter_init()
 {
     stack_init(&call_stack);
+    type_registry_init();
 }
 
 void interpreter_cleanup()
 {
+    type_registry_cleanup();
     stack_free(&call_stack);
 }
 
