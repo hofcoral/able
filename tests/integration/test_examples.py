@@ -13,6 +13,7 @@ EXAMPLES = {
     'examples/variables/copy.abl': 'Alice\n',
     'examples/functions/greet.abl': 'AliceWonderland\n',
     'examples/functions/choose_first.abl': 'x\n',
+    'examples/functions/fib_recursion.abl': '8\n',
     'examples/variables/math.abl': '5\nHello World\n1\n',
     'examples/variables/equality.abl': 'true\ntrue\nfalse\ntrue\n',
     'examples/variables/bool_func.abl': 'false\ntrue\nfalse\n',

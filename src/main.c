@@ -58,8 +58,10 @@ int main(int argc, char *argv[])
     ASTNode **prog = parse_program(&lexer, &stmt_count);
 
     Env *global_env = env_create(NULL);
+    interpreter_init();
     interpreter_set_env(global_env);
     run_ast(prog, stmt_count);
+    interpreter_cleanup();
 
     // Run "Garbage Collection"
     free_ast(prog, stmt_count);

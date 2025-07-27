@@ -6,8 +6,6 @@
 #include "types/value.h"
 #include "utils/utils.h"
 
-Env *current_env = NULL;
-
 Env *env_create(Env *parent)
 {
     Env *env = malloc(sizeof(Env));
