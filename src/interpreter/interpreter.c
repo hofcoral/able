@@ -9,7 +9,10 @@
 #include "types/function.h"
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
+#include "interpreter/stack.h"
 #include "utils/utils.h"
+
+static CallStack call_stack;
 
 static Value exec_func_call(ASTNode *n);
 
@@ -87,9 +90,28 @@ static bool loose_equal(Value a, Value b)
     return false;
 }
 
+void interpreter_init()
+{
+    stack_init(&call_stack);
+}
+
+void interpreter_cleanup()
+{
+    stack_free(&call_stack);
+}
+
 void interpreter_set_env(Env *env)
 {
-    current_env = env;
+    CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
+    push_frame(&call_stack, frame);
+}
+
+Env *interpreter_current_env()
+{
+    CallFrame *frame = current_frame(&call_stack);
+    if (!frame)
+        return NULL;
+    return frame->env;
 }
 
 static Value eval_node(ASTNode *n)
@@ -97,7 +119,7 @@ static Value eval_node(ASTNode *n)
     switch (n->type)
     {
     case NODE_VAR:
-        return get_variable(current_env, n->set_name, n->line, n->column);
+        return get_variable(interpreter_current_env(), n->set_name, n->line, n->column);
     case NODE_ATTR_ACCESS:
         return resolve_attribute_chain(n);
     case NODE_LITERAL:
@@ -298,10 +320,10 @@ static Value exec_func_call(ASTNode *n)
         Value arg_val = eval_node(n->children[p]);
         set_variable(call_env, fn->params[p], arg_val);
     }
-    Env *prev_env = current_env;
-    current_env = call_env;
+    CallFrame frame = {.env = call_env, .return_ptr = NULL, .returning = false};
+    push_frame(&call_stack, frame);
     Value result = run_ast(fn->body, fn->body_count);
-    current_env = prev_env;
+    pop_frame(&call_stack);
     Value ret_val = clone_value(&result);
     env_release(call_env);
     return ret_val;
@@ -326,10 +348,10 @@ Value run_ast(ASTNode **nodes, int count)
             {
                 if (result.type == VAL_FUNCTION && result.func->env == NULL)
                 {
-                    result.func->env = current_env;
-                    env_retain(current_env);
+                    result.func->env = interpreter_current_env();
+                    env_retain(interpreter_current_env());
                 }
-                set_variable(current_env, n->set_name, result);
+                set_variable(interpreter_current_env(), n->set_name, result);
             }
         }
         else if (n->type == NODE_FUNC_CALL)
@@ -360,12 +382,19 @@ Value run_ast(ASTNode **nodes, int count)
         else if (n->type == NODE_RETURN)
         {
             last = eval_node(n->children[0]);
+            CallFrame *f = current_frame(&call_stack);
+            if (f)
+                f->returning = true;
             return last;
         }
         else if (n->type == NODE_BLOCK)
         {
             last = run_ast(n->children, n->child_count);
         }
+
+        CallFrame *cf = current_frame(&call_stack);
+        if (cf && cf->returning)
+            return last;
     }
 
     return last;
