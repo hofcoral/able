@@ -3,8 +3,8 @@ import unittest
 from tests.integration.helpers import AbleTestCase
 
 EXAMPLES = {
-    'examples/variables/basic_assignment.abl': 'Daniel22.000000\n\n',
-    'examples/objects/attr_set.abl': '30.000000\nWonderland\n',
+    'examples/variables/basic_assignment.abl': 'Daniel22\n\n',
+    'examples/objects/attr_set.abl': '30\nWonderland\n',
     'examples/variables/simple_print.abl': 'Hello World!\n',
     'examples/objects/object_literal.abl': 'First name:Hof\n\n',
     'examples/functions/return_example.abl': 'test\n',
@@ -13,7 +13,7 @@ EXAMPLES = {
     'examples/variables/copy.abl': 'Alice\n',
     'examples/functions/greet.abl': 'AliceWonderland\n',
     'examples/functions/choose_first.abl': 'x\n',
-    'examples/variables/math.abl': '5.000000\nHello World\n1.000000\n',
+    'examples/variables/math.abl': '5\nHello World\n1\n',
     'examples/variables/equality.abl': 'true\ntrue\nfalse\ntrue\n',
     'examples/variables/bool_func.abl': 'false\ntrue\nfalse\n',
     'examples/control/if_else.abl': 'B\n',

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "types/value.h"
 #include "types/object.h"
@@ -85,7 +86,10 @@ void print_value(Value v, int indent)
         break;
 
     case VAL_NUMBER:
-        printf("%f", v.num);
+        if (fabs(v.num - (long long)v.num) < 1e-9)
+            printf("%lld", (long long)v.num);
+        else
+            printf("%f", v.num);
         break;
 
     case VAL_BOOL:
