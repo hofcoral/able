@@ -3,49 +3,69 @@
 
 import subprocess
 import sys
-import tempfile
-import os
 import unittest
+from typing import Iterable
+
+
+class TrackingResult(unittest.TextTestResult):
+    """Test result collecting successes for summary table."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.successes = []
+
+    def addSuccess(self, test):
+        super().addSuccess(test)
+        self.successes.append(test)
+
+    def addSubTest(self, test, subtest, outcome):
+        super().addSubTest(test, subtest, outcome)
+        if outcome is None:
+            self.successes.append(f"{test} {subtest}")
+
+
+class TableTestRunner(unittest.TextTestRunner):
+    resultclass = TrackingResult
+
+    def run(self, test):
+        all_ids = list(self._iter_tests(test))
+        result = super().run(test)
+        self._print_table(all_ids, result)
+        return result
+
+    def _iter_tests(self, s: Iterable) -> Iterable[str]:
+        for t in s:
+            if isinstance(t, unittest.TestSuite):
+                yield from self._iter_tests(t)
+            else:
+                yield str(t)
+
+    def _print_table(self, tests: Iterable[str], result: TrackingResult):
+        status = {tid: 'PASS' for tid in tests}
+        for t, _ in result.failures:
+            status[str(t)] = 'FAIL'
+        for t, _ in result.errors:
+            status[str(t)] = 'ERROR'
+        for t, _ in result.skipped:
+            status[str(t)] = 'SKIP'
+        width = max(len(k) for k in status)
+        print("\nTest Results:")
+        print(f"{'Test'.ljust(width)} | Result")
+        print('-' * (width + 9))
+        for name in sorted(status):
+            print(f"{name.ljust(width)} | {status[name]}")
 
 
 def main():
     subprocess.run(["make"], check=True)
 
     suite = unittest.defaultTestLoader.discover("tests")
-    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    runner = TableTestRunner(verbosity=2)
+    result = runner.run(suite)
     if not result.wasSuccessful():
         print("Not all tests passed.")
         sys.exit(1)
 
-    def run(code):
-        with tempfile.NamedTemporaryFile("w", suffix=".abl", delete=False) as f:
-            f.write(code)
-            temp_path = f.name
-        try:
-            out = subprocess.run(["build/able_exe", temp_path], check=True, capture_output=True, text=True)
-            return out.stdout
-        finally:
-            os.unlink(temp_path)
-
-    def run_raises(code):
-        try:
-            run(code)
-        except subprocess.CalledProcessError:
-            return True
-        return False
-
-    assert run('set x to "foo"\npr(type(x))') == 'STRING\n'
-    assert run('set x to 123\npr(type(x))') == 'NUMBER\n'
-    assert run('set x to true\npr(type(x))') == 'BOOLEAN\n'
-    assert run('set x to null\npr(type(x))') == 'NULL\n'
-    assert run('set x to {}\npr(type(x))') == 'OBJECT\n'
-    assert run('set f to (): return\npr(type(f))') == 'FUNCTION\n'
-    assert run_raises('pr(type())')
-    assert run_raises('pr(type(a,b))')
-    assert run('pr(1 < 2)') == 'true\n'
-    assert run('pr("b" > "a")') == 'true\n'
-
-    print("All tests passed.")
     sys.exit(0)
 
 

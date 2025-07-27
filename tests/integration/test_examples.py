@@ -22,6 +22,12 @@ EXAMPLES = {
     'examples/control/if_comp_gt.abl': 'gt\n',
     'examples/control/if_comp_lte.abl': 'lte\n',
     'examples/control/if_comp_gte.abl': 'gte\n',
+    'examples/types/string_type.abl': 'STRING\n',
+    'examples/types/number_type.abl': 'NUMBER\n',
+    'examples/types/boolean_type.abl': 'BOOLEAN\n',
+    'examples/types/null_type.abl': 'NULL\n',
+    'examples/types/object_type.abl': 'OBJECT\n',
+    'examples/types/function_type.abl': 'FUNCTION\n',
 }
 
 class ExampleTests(AbleTestCase):
