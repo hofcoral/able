@@ -7,6 +7,7 @@
 #include "ast/ast.h"
 #include "types/env.h"
 #include "types/function.h"
+#include "types/list.h"
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/stack.h"
@@ -16,6 +17,7 @@
 static CallStack call_stack;
 
 static Value exec_func_call(ASTNode *n);
+static Value resolve_attr_prefix(ASTNode *attr_node, int count);
 
 static double to_number(Value v)
 {
@@ -67,6 +69,8 @@ static bool strict_equal(Value a, Value b)
         return a.obj == b.obj;
     case VAL_FUNCTION:
         return a.func == b.func;
+    case VAL_LIST:
+        return a.list == b.list;
     case VAL_NULL:
     case VAL_UNDEFINED:
         return true;
@@ -89,6 +93,25 @@ static bool loose_equal(Value a, Value b)
     }
 
     return false;
+}
+
+static Value resolve_attr_prefix(ASTNode *attr_node, int count)
+{
+    Value base = get_variable(interpreter_current_env(), attr_node->object_name,
+                              attr_node->line, attr_node->column);
+    for (int i = 0; i < count; ++i)
+    {
+        if (base.type != VAL_OBJECT)
+        {
+            log_script_error(attr_node->children[i]->line,
+                              attr_node->children[i]->column,
+                              "Error: intermediate '%s' is not an object",
+                              attr_node->children[i]->attr_name);
+            exit(1);
+        }
+        base = object_get(base.obj, attr_node->children[i]->attr_name);
+    }
+    return base;
 }
 
 void interpreter_init()
@@ -229,6 +252,19 @@ static Value eval_node(ASTNode *n)
             Value res = {.type = VAL_STRING, .str = buf};
             return res;
         }
+        if (n->binary_op == OP_ADD && left.type == VAL_LIST && right.type == VAL_LIST)
+        {
+            List *list = malloc(sizeof(List));
+            list->count = 0;
+            list->capacity = left.list->count + right.list->count;
+            list->items = malloc(sizeof(Value) * list->capacity);
+            for (int i = 0; i < left.list->count; ++i)
+                list->items[list->count++] = clone_value(&left.list->items[i]);
+            for (int j = 0; j < right.list->count; ++j)
+                list->items[list->count++] = clone_value(&right.list->items[j]);
+            Value res = {.type = VAL_LIST, .list = list};
+            return res;
+        }
 
         log_script_error(n->line, n->column, "Type error in binary expression");
         exit(1);
@@ -295,6 +331,108 @@ static Value exec_func_call(ASTNode *n)
         Value arg = eval_node(n->children[0]);
         Value res = {.type = VAL_BOOL, .boolean = to_boolean(arg)};
         return res;
+    }
+
+    if (n->func_callee->type == NODE_VAR && strcmp(n->func_callee->set_name, "list") == 0)
+    {
+        if (n->child_count > 1)
+        {
+            log_script_error(n->line, n->column, "list() expects at most one argument");
+            exit(1);
+        }
+        List *list = malloc(sizeof(List));
+        list->count = 0;
+        list->capacity = 0;
+        list->items = NULL;
+        if (n->child_count == 1)
+        {
+            Value arg = eval_node(n->children[0]);
+            if (arg.type == VAL_LIST)
+            {
+                free(list);
+                list = clone_list(arg.list);
+            }
+            else
+            {
+                list_append(list, arg);
+            }
+        }
+        Value res = {.type = VAL_LIST, .list = list};
+        return res;
+    }
+
+    if (n->func_callee->type == NODE_ATTR_ACCESS)
+    {
+        ASTNode *attr = n->func_callee;
+        if (attr->child_count > 0)
+        {
+            ASTNode *last = attr->children[attr->child_count - 1];
+            const char *name = last->attr_name;
+            Value target = resolve_attr_prefix(attr, attr->child_count - 1);
+            if (target.type == VAL_LIST)
+            {
+                if (strcmp(name, "append") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "append() expects one argument");
+                        exit(1);
+                    }
+                    Value arg = eval_node(n->children[0]);
+                    list_append(target.list, arg);
+                    Value undef = {.type = VAL_UNDEFINED};
+                    return undef;
+                }
+                if (strcmp(name, "remove") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "remove() expects one argument");
+                        exit(1);
+                    }
+                    Value idxv = eval_node(n->children[0]);
+                    if (idxv.type != VAL_NUMBER)
+                    {
+                        log_script_error(n->line, n->column, "remove() index must be number");
+                        exit(1);
+                    }
+                    return list_remove(target.list, (int)idxv.num);
+                }
+                if (strcmp(name, "get") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "get() expects one argument");
+                        exit(1);
+                    }
+                    Value idxv = eval_node(n->children[0]);
+                    if (idxv.type != VAL_NUMBER)
+                    {
+                        log_script_error(n->line, n->column, "get() index must be number");
+                        exit(1);
+                    }
+                    Value item = list_get(target.list, (int)idxv.num);
+                    return clone_value(&item);
+                }
+                if (strcmp(name, "extend") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "extend() expects one argument");
+                        exit(1);
+                    }
+                    Value lst = eval_node(n->children[0]);
+                    if (lst.type != VAL_LIST)
+                    {
+                        log_script_error(n->line, n->column, "extend() expects a list");
+                        exit(1);
+                    }
+                    list_extend(target.list, lst.list);
+                    Value undef = {.type = VAL_UNDEFINED};
+                    return undef;
+                }
+            }
+        }
     }
 
     Value callee_val = eval_node(n->func_callee);

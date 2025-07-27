@@ -5,6 +5,7 @@
 
 struct Object; // Forward declaration (to avoid circular include)
 struct Function; // Forward declaration for functions
+struct List;    // Forward declaration for lists
 
 // ————— ENUM FOR VALUE TYPES ————— //
 typedef enum
@@ -16,6 +17,7 @@ typedef enum
     VAL_STRING,
     VAL_OBJECT,
     VAL_FUNCTION,
+    VAL_LIST,
     VAL_TYPE_COUNT
 } ValueType;
 
@@ -30,6 +32,7 @@ typedef struct Value
         char *str;
         struct Object *obj;
         struct Function *func;
+        struct List *list;
     };
 } Value;
 

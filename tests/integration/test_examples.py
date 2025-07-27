@@ -29,6 +29,7 @@ EXAMPLES = {
     'examples/types/null_type.abl': 'NULL\n',
     'examples/types/object_type.abl': 'OBJECT\n',
     'examples/types/function_type.abl': 'FUNCTION\n',
+    'examples/variables/list_ops.abl': '1\n2\n3\n',
 }
 
 class ExampleTests(AbleTestCase):

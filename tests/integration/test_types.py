@@ -10,6 +10,7 @@ TYPE_EXAMPLES = {
     'examples/types/null_type.abl': 'NULL\n',
     'examples/types/object_type.abl': 'OBJECT\n',
     'examples/types/function_type.abl': 'FUNCTION\n',
+    'examples/types/list_type.abl': 'LIST\n',
 }
 
 class TypeTests(AbleTestCase):
