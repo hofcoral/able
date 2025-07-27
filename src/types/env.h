@@ -25,7 +25,7 @@ void env_retain(Env *env);
 void env_release(Env *env);
 
 void set_variable(Env *env, const char *name, Value val);
-Value get_variable(Env *env, const char *name);
+Value get_variable(Env *env, const char *name, int line);
 
 extern Env *current_env;
 

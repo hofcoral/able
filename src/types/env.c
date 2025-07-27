@@ -79,7 +79,7 @@ void set_variable(Env *env, const char *name, Value val)
     env->count++;
 }
 
-Value get_variable(Env *env, const char *name)
+Value get_variable(Env *env, const char *name, int line)
 {
     for (Env *e = env; e != NULL; e = e->parent)
     {
@@ -88,6 +88,6 @@ Value get_variable(Env *env, const char *name)
             return var->value;
     }
 
-    log_error("Runtime error: variable '%s' is not defined.", name);
+    log_script_error(line, "Runtime error: variable '%s' is not defined.", name);
     exit(1);
 }

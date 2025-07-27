@@ -49,11 +49,12 @@ void skip_multiline_comment(Lexer *lexer)
 }
 
 // === Token Creation === //
-Token make_token(TokenType type, const char *start, size_t len)
+Token make_token(TokenType type, const char *start, size_t len, int line)
 {
     Token token;
     token.type = type;
     token.value = strndup(start, len);
+    token.line = line;
     return token;
 }
 
@@ -66,6 +67,7 @@ void lexer_init(Lexer *lexer, const char *source)
     lexer->indent_top = 0;
     lexer->pending_dedents = 0;
     lexer->at_line_start = 1;
+    lexer->line = 1;
 }
 
 // === Core Tokenizer === //
@@ -74,7 +76,7 @@ Token next_token(Lexer *lexer)
     if (lexer->pending_dedents > 0)
     {
         lexer->pending_dedents--;
-        return make_token(TOKEN_DEDENT, "", 0);
+        return make_token(TOKEN_DEDENT, "", 0, lexer->line);
     }
 
     if (lexer->at_line_start)
@@ -89,7 +91,8 @@ Token next_token(Lexer *lexer)
         if (peek(lexer) == '\n')
         {
             advance(lexer);
-            return make_token(TOKEN_NEWLINE, "\n", 1);
+            lexer->line++;
+            return make_token(TOKEN_NEWLINE, "\n", 1, lexer->line - 1);
         }
 
         if (indent > lexer->indent_stack[lexer->indent_top])
@@ -97,7 +100,7 @@ Token next_token(Lexer *lexer)
             lexer->indent_top++;
             lexer->indent_stack[lexer->indent_top] = indent;
             lexer->at_line_start = 0;
-            return make_token(TOKEN_INDENT, "", 0);
+            return make_token(TOKEN_INDENT, "", 0, lexer->line);
         }
 
         if (indent < lexer->indent_stack[lexer->indent_top])
@@ -109,7 +112,7 @@ Token next_token(Lexer *lexer)
             }
             lexer->at_line_start = 0;
             lexer->pending_dedents--; /* return one dedent now */
-            return make_token(TOKEN_DEDENT, "", 0);
+            return make_token(TOKEN_DEDENT, "", 0, lexer->line);
         }
 
         lexer->at_line_start = 0;
@@ -129,7 +132,8 @@ Token next_token(Lexer *lexer)
         {
             advance(lexer);
             lexer->at_line_start = 1;
-            return make_token(TOKEN_NEWLINE, "\n", 1);
+            lexer->line++;
+            return make_token(TOKEN_NEWLINE, "\n", 1, lexer->line - 1);
         }
 
         // Single-line comment
@@ -158,9 +162,9 @@ Token next_token(Lexer *lexer)
         if (lexer->indent_top > 0)
         {
             lexer->indent_top--;
-            return make_token(TOKEN_DEDENT, "", 0);
+            return make_token(TOKEN_DEDENT, "", 0, lexer->line);
         }
-        return make_token(TOKEN_EOF, "", 0);
+        return make_token(TOKEN_EOF, "", 0, lexer->line);
     }
 
     // Commands
@@ -173,31 +177,31 @@ Token next_token(Lexer *lexer)
         size_t len = &lexer->source[lexer->pos] - start;
 
         if (len == 3 && strncmp(start, "set", len) == 0)
-            return make_token(TOKEN_SET, start, len);
+            return make_token(TOKEN_SET, start, len, lexer->line);
         if (len == 2 && strncmp(start, "to", len) == 0)
-            return make_token(TOKEN_TO, start, len);
+            return make_token(TOKEN_TO, start, len, lexer->line);
         if (len == 2 && strncmp(start, "if", len) == 0)
-            return make_token(TOKEN_IF, start, len);
+            return make_token(TOKEN_IF, start, len, lexer->line);
         if (len == 4 && strncmp(start, "elif", len) == 0)
-            return make_token(TOKEN_ELIF, start, len);
+            return make_token(TOKEN_ELIF, start, len, lexer->line);
         if (len == 4 && strncmp(start, "else", len) == 0)
-            return make_token(TOKEN_ELSE, start, len);
+            return make_token(TOKEN_ELSE, start, len, lexer->line);
         if (len == 2 && strncmp(start, "pr", len) == 0)
-            return make_token(TOKEN_IDENTIFIER, start, len);
+            return make_token(TOKEN_IDENTIFIER, start, len, lexer->line);
         if (len == 3 && strncmp(start, "GET", len) == 0)
-            return make_token(TOKEN_GET, start, len);
+            return make_token(TOKEN_GET, start, len, lexer->line);
         if (len == 4 && strncmp(start, "POST", len) == 0)
-            return make_token(TOKEN_POST, start, len);
+            return make_token(TOKEN_POST, start, len, lexer->line);
         if (len == 6 && strncmp(start, "return", len) == 0)
-            return make_token(TOKEN_RETURN, start, len);
+            return make_token(TOKEN_RETURN, start, len, lexer->line);
         if (len == 4 && strncmp(start, "true", len) == 0)
-            return make_token(TOKEN_TRUE, start, len);
+            return make_token(TOKEN_TRUE, start, len, lexer->line);
         if (len == 5 && strncmp(start, "false", len) == 0)
-            return make_token(TOKEN_FALSE, start, len);
+            return make_token(TOKEN_FALSE, start, len, lexer->line);
         if (len == 4 && strncmp(start, "null", len) == 0)
-            return make_token(TOKEN_NULL, start, len);
+            return make_token(TOKEN_NULL, start, len, lexer->line);
 
-        return make_token(TOKEN_IDENTIFIER, start, len);
+        return make_token(TOKEN_IDENTIFIER, start, len, lexer->line);
     }
 
     // Numbers
@@ -206,7 +210,7 @@ Token next_token(Lexer *lexer)
         const char *start = &lexer->source[lexer->pos - 1];
         while (isdigit(peek(lexer)))
             advance(lexer);
-        return make_token(TOKEN_NUMBER, start, &lexer->source[lexer->pos] - start);
+        return make_token(TOKEN_NUMBER, start, &lexer->source[lexer->pos] - start, lexer->line);
     }
 
     // Strings
@@ -218,7 +222,7 @@ Token next_token(Lexer *lexer)
 
         size_t len = &lexer->source[lexer->pos] - start;
         match(lexer, '"');
-        return make_token(TOKEN_STRING, start, len);
+        return make_token(TOKEN_STRING, start, len, lexer->line);
     }
 
     // General operators
@@ -227,37 +231,37 @@ Token next_token(Lexer *lexer)
         if (match(lexer, '='))
         {
             if (match(lexer, '='))
-                return make_token(TOKEN_STRICT_EQ, "===", 3);
-            return make_token(TOKEN_EQ, "==", 2);
+                return make_token(TOKEN_STRICT_EQ, "===", 3, lexer->line);
+            return make_token(TOKEN_EQ, "==", 2, lexer->line);
         }
-        return make_token(TOKEN_ASSIGN, "=", 1);
+        return make_token(TOKEN_ASSIGN, "=", 1, lexer->line);
     }
     if (c == '{')
-        return make_token(TOKEN_LBRACE, "{", 1);
+        return make_token(TOKEN_LBRACE, "{", 1, lexer->line);
     if (c == '}')
-        return make_token(TOKEN_RBRACE, "}", 1);
+        return make_token(TOKEN_RBRACE, "}", 1, lexer->line);
     if (c == ':')
-        return make_token(TOKEN_COLON, ":", 1);
+        return make_token(TOKEN_COLON, ":", 1, lexer->line);
     if (c == ',')
-        return make_token(TOKEN_COMMA, ",", 1);
+        return make_token(TOKEN_COMMA, ",", 1, lexer->line);
     if (c == '(')
-        return make_token(TOKEN_LPAREN, "(", 1);
+        return make_token(TOKEN_LPAREN, "(", 1, lexer->line);
     if (c == ')')
-        return make_token(TOKEN_RPAREN, ")", 1);
+        return make_token(TOKEN_RPAREN, ")", 1, lexer->line);
     if (c == '.')
-        return make_token(TOKEN_DOT, ".", 1);
+        return make_token(TOKEN_DOT, ".", 1, lexer->line);
     if (c == '+')
-        return make_token(TOKEN_PLUS, "+", 1);
+        return make_token(TOKEN_PLUS, "+", 1, lexer->line);
     if (c == '-' && match(lexer, '>'))
-        return make_token(TOKEN_ARROW, "->", 2);
+        return make_token(TOKEN_ARROW, "->", 2, lexer->line);
     if (c == '-')
-        return make_token(TOKEN_MINUS, "-", 1);
+        return make_token(TOKEN_MINUS, "-", 1, lexer->line);
     if (c == '*')
-        return make_token(TOKEN_STAR, "*", 1);
+        return make_token(TOKEN_STAR, "*", 1, lexer->line);
     if (c == '%')
-        return make_token(TOKEN_PERCENT, "%", 1);
+        return make_token(TOKEN_PERCENT, "%", 1, lexer->line);
     if (c == '/')
-        return make_token(TOKEN_SLASH, "/", 1);
+        return make_token(TOKEN_SLASH, "/", 1, lexer->line);
 
-    return make_token(TOKEN_UNKNOWN, &c, 1);
+    return make_token(TOKEN_UNKNOWN, &c, 1, lexer->line);
 }

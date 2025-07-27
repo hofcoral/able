@@ -49,6 +49,7 @@ typedef struct
 {
     TokenType type;
     char *value;
+    int line;
 } Token;
 
 typedef struct
@@ -60,6 +61,7 @@ typedef struct
     int indent_top;
     int pending_dedents;
     int at_line_start;
+    int line;
 } Lexer;
 
 Token next_token(Lexer *lexer);

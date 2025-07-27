@@ -12,11 +12,21 @@ void log_info(const char *fmt, ...)
     va_end(args);
 }
 
-void log_error_loc(const char *file, int line, const char *fmt, ...)
+void log_error(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    fprintf(stderr, "[ERROR %s:%d] ", file, line);
+    fprintf(stderr, "[ERROR] ");
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
+}
+
+void log_script_error(int line, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "[ERROR line %d] ", line);
     vfprintf(stderr, fmt, args);
     fprintf(stderr, "\n");
     va_end(args);
