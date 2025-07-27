@@ -116,6 +116,57 @@ static Value eval_node(ASTNode *n)
             return res;
         }
 
+        if (n->binary_op == OP_LT || n->binary_op == OP_GT ||
+            n->binary_op == OP_LTE || n->binary_op == OP_GTE)
+        {
+            bool cmp;
+            if ((left.type == VAL_NUMBER || left.type == VAL_BOOL) &&
+                (right.type == VAL_NUMBER || right.type == VAL_BOOL))
+            {
+                double ln = to_number(left);
+                double rn = to_number(right);
+                switch (n->binary_op)
+                {
+                case OP_LT:
+                    cmp = ln < rn;
+                    break;
+                case OP_GT:
+                    cmp = ln > rn;
+                    break;
+                case OP_LTE:
+                    cmp = ln <= rn;
+                    break;
+                default:
+                    cmp = ln >= rn;
+                }
+            }
+            else if (left.type == VAL_STRING && right.type == VAL_STRING)
+            {
+                int c = strcmp(left.str, right.str);
+                switch (n->binary_op)
+                {
+                case OP_LT:
+                    cmp = c < 0;
+                    break;
+                case OP_GT:
+                    cmp = c > 0;
+                    break;
+                case OP_LTE:
+                    cmp = c <= 0;
+                    break;
+                default:
+                    cmp = c >= 0;
+                }
+            }
+            else
+            {
+                log_script_error(n->line, n->column, "Type error in binary expression");
+                exit(1);
+            }
+            Value res = {.type = VAL_BOOL, .boolean = cmp};
+            return res;
+        }
+
         if (left.type == VAL_NUMBER && right.type == VAL_NUMBER)
         {
             Value res = {.type = VAL_NUMBER};

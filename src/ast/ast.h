@@ -27,7 +27,11 @@ typedef enum
     OP_DIV,
     OP_MOD,
     OP_EQ,
-    OP_STRICT_EQ
+    OP_STRICT_EQ,
+    OP_LT,
+    OP_GT,
+    OP_LTE,
+    OP_GTE
 } BinaryOp;
 
 typedef struct ASTNode

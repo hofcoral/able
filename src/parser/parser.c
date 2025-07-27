@@ -374,9 +374,31 @@ static ASTNode *parse_arithmetic()
 static ASTNode *parse_expression()
 {
     ASTNode *node = parse_arithmetic();
-    while (current.type == TOKEN_EQ || current.type == TOKEN_STRICT_EQ)
+    while (current.type == TOKEN_EQ || current.type == TOKEN_STRICT_EQ ||
+           current.type == TOKEN_LT || current.type == TOKEN_GT ||
+           current.type == TOKEN_LTE || current.type == TOKEN_GTE)
     {
-        BinaryOp op = current.type == TOKEN_EQ ? OP_EQ : OP_STRICT_EQ;
+        BinaryOp op;
+        switch (current.type)
+        {
+        case TOKEN_EQ:
+            op = OP_EQ;
+            break;
+        case TOKEN_STRICT_EQ:
+            op = OP_STRICT_EQ;
+            break;
+        case TOKEN_LT:
+            op = OP_LT;
+            break;
+        case TOKEN_GT:
+            op = OP_GT;
+            break;
+        case TOKEN_LTE:
+            op = OP_LTE;
+            break;
+        default:
+            op = OP_GTE;
+        }
         advance_token();
         ASTNode *right = parse_arithmetic();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
