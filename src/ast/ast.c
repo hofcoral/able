@@ -2,11 +2,12 @@
 
 #include "ast/ast.h"
 
-ASTNode *new_node(NodeType type, int line)
+ASTNode *new_node(NodeType type, int line, int column)
 {
     ASTNode *n = calloc(1, sizeof(ASTNode));
     n->type = type;
     n->line = line;
+    n->column = column;
     return n;
 }
 

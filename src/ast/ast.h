@@ -57,11 +57,12 @@ typedef struct ASTNode
     Value literal_value;
 
     int line;
+    int column;
 
 } ASTNode;
 
 /* Helpers */
-ASTNode *new_node(NodeType type, int line);
+ASTNode *new_node(NodeType type, int line, int column);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

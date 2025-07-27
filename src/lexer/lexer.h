@@ -50,6 +50,7 @@ typedef struct
     TokenType type;
     char *value;
     int line;
+    int column;
 } Token;
 
 typedef struct
@@ -62,6 +63,7 @@ typedef struct
     int pending_dedents;
     int at_line_start;
     int line;
+    size_t line_start;
 } Lexer;
 
 Token next_token(Lexer *lexer);

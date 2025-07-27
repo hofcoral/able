@@ -97,7 +97,7 @@ static Value eval_node(ASTNode *n)
     switch (n->type)
     {
     case NODE_VAR:
-        return get_variable(current_env, n->set_name, n->line);
+        return get_variable(current_env, n->set_name, n->line, n->column);
     case NODE_ATTR_ACCESS:
         return resolve_attribute_chain(n);
     case NODE_LITERAL:
@@ -137,7 +137,7 @@ static Value eval_node(ASTNode *n)
                 res.num = fmod(left.num, right.num);
                 break;
             default:
-                log_script_error(n->line, "Unknown operator");
+                log_script_error(n->line, n->column, "Unknown operator");
                 exit(1);
             }
             return res;
@@ -154,7 +154,7 @@ static Value eval_node(ASTNode *n)
             return res;
         }
 
-        log_script_error(n->line, "Type error in binary expression");
+        log_script_error(n->line, n->column, "Type error in binary expression");
         exit(1);
     }
     case NODE_IF:
@@ -177,7 +177,7 @@ static Value eval_node(ASTNode *n)
     case NODE_BLOCK:
         return run_ast(n->children, n->child_count);
     default:
-        log_script_error(n->line, "Unsupported eval node type");
+        log_script_error(n->line, n->column, "Unsupported eval node type");
         exit(1);
     }
 }
@@ -200,7 +200,7 @@ static Value exec_func_call(ASTNode *n)
     {
         if (n->child_count != 1)
         {
-            log_script_error(n->line, "type() expects exactly one argument");
+            log_script_error(n->line, n->column, "type() expects exactly one argument");
             exit(1);
         }
         Value arg = eval_node(n->children[0]);
@@ -213,7 +213,7 @@ static Value exec_func_call(ASTNode *n)
     {
         if (n->child_count != 1)
         {
-            log_script_error(n->line, "bool() expects exactly one argument");
+            log_script_error(n->line, n->column, "bool() expects exactly one argument");
             exit(1);
         }
         Value arg = eval_node(n->children[0]);
@@ -224,7 +224,7 @@ static Value exec_func_call(ASTNode *n)
     Value callee_val = eval_node(n->func_callee);
     if (callee_val.type != VAL_FUNCTION)
     {
-        log_script_error(n->line, "Attempting to call non-function");
+        log_script_error(n->line, n->column, "Attempting to call non-function");
         Value undef = {.type = VAL_UNDEFINED};
         return undef;
     }
@@ -234,7 +234,7 @@ static Value exec_func_call(ASTNode *n)
 
     if (callee_val.func->param_count != n->child_count)
     {
-        log_script_error(n->line, "Function '%s' expects %d arguments, but got %d",
+        log_script_error(n->line, n->column, "Function '%s' expects %d arguments, but got %d",
                   n->func_name,
                   fn->param_count,
                   n->child_count);
