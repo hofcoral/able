@@ -12,6 +12,8 @@
 
 /* --- helpers --- */
 static Token current;
+static int prev_line;
+static int prev_col;
 static Lexer *L;
 
 static ASTNode *parse_statement();
@@ -24,7 +26,11 @@ static ASTNode *parse_block();
 static ASTNode *parse_if_stmt();
 ASTNode *parse_argument();
 
-static void advance_token() { current = next_token(L); }
+static void advance_token() {
+    prev_line = current.line;
+    prev_col = current.column;
+    current = next_token(L);
+}
 
 static int match(TokenType type)
 {
@@ -40,7 +46,7 @@ static void expect(TokenType type, const char *msg)
 {
     if (!match(type))
     {
-        log_error("Parse error: expected %s", msg);
+        log_script_error(current.line, current.column, "Parse error: expected %s", msg);
         exit(1);
     }
 }
@@ -50,21 +56,23 @@ static ASTNode *parse_identifier_chain()
 {
     if (current.type != TOKEN_IDENTIFIER)
     {
-        log_error("Expected identifier");
+        log_script_error(current.line, current.column, "Expected identifier");
         exit(1);
     }
 
     char *first = strdup(current.value);
+    int id_line = current.line;
+    int id_col = current.column;
     advance_token();
 
     if (!match(TOKEN_DOT))
     {
-        ASTNode *var = new_node(NODE_VAR);
+        ASTNode *var = new_node(NODE_VAR, id_line, id_col);
         var->set_name = first;
         return var;
     }
 
-    ASTNode *base = new_node(NODE_ATTR_ACCESS);
+    ASTNode *base = new_node(NODE_ATTR_ACCESS, id_line, id_col);
     base->object_name = first;
     base->child_count = 0;
     base->children = NULL;
@@ -73,11 +81,11 @@ static ASTNode *parse_identifier_chain()
     {
         if (current.type != TOKEN_IDENTIFIER)
         {
-            log_error("Expected attribute name after '.'");
+            log_script_error(current.line, current.column, "Expected attribute name after '.'");
             exit(1);
         }
 
-        ASTNode *attr = new_node(NODE_ATTR_ACCESS);
+        ASTNode *attr = new_node(NODE_ATTR_ACCESS, current.line, current.column);
         attr->attr_name = strdup(current.value);
         attr->child_count = 0;
         attr->children = NULL;
@@ -91,7 +99,7 @@ static ASTNode *parse_identifier_chain()
 
 static ASTNode *parse_literal_node()
 {
-    ASTNode *n = new_node(NODE_LITERAL);
+    ASTNode *n = new_node(NODE_LITERAL, current.line, current.column);
 
     if (current.type == TOKEN_STRING)
     {
@@ -124,7 +132,7 @@ static ASTNode *parse_literal_node()
     }
     else
     {
-        log_error("Expected literal value");
+        log_script_error(current.line, current.column, "Expected literal value");
         exit(1);
     }
 
@@ -144,7 +152,7 @@ static Function *parse_function_def()
         {
             if (current.type != TOKEN_IDENTIFIER)
             {
-                log_error("Expected parameter name");
+                log_script_error(current.line, current.column, "Expected parameter name");
                 exit(1);
             }
 
@@ -209,7 +217,9 @@ static Function *parse_function_def()
 
 static ASTNode *parse_set_stmt()
 {
-    ASTNode *n = new_node(NODE_SET);
+    int line = prev_line;
+    int col = prev_col;
+    ASTNode *n = new_node(NODE_SET, line, col);
 
     ASTNode *dest = parse_identifier_chain();
     if (dest->type == NODE_VAR)
@@ -224,7 +234,7 @@ static ASTNode *parse_set_stmt()
 
     if (current.type != TOKEN_TO)
     {
-        log_error("Expected 'to' after variable name");
+        log_script_error(current.line, current.column, "Expected 'to' after variable name");
         exit(1);
     }
     advance_token();
@@ -250,7 +260,7 @@ static ASTNode *parse_set_stmt()
         {
             Function *fn = parse_function_def();
             fn->name = strdup(n->set_name);
-            ASTNode *lit = new_node(NODE_LITERAL);
+            ASTNode *lit = new_node(NODE_LITERAL, line, col);
             lit->literal_value.type = VAL_FUNCTION;
             lit->literal_value.func = fn;
             add_child(n, lit);
@@ -266,7 +276,7 @@ static ASTNode *parse_set_stmt()
 
 static ASTNode *finish_func_call(ASTNode *callee)
 {
-    ASTNode *n = new_node(NODE_FUNC_CALL);
+    ASTNode *n = new_node(NODE_FUNC_CALL, callee->line, callee->column);
     n->func_callee = callee;
 
     if (callee->type == NODE_VAR)
@@ -309,10 +319,10 @@ static ASTNode *parse_unary()
     if (match(TOKEN_MINUS))
     {
         ASTNode *right = parse_unary();
-        ASTNode *zero = new_node(NODE_LITERAL);
+        ASTNode *zero = new_node(NODE_LITERAL, prev_line, prev_col);
         zero->literal_value.type = VAL_NUMBER;
         zero->literal_value.num = 0;
-        ASTNode *n = new_node(NODE_BINARY);
+        ASTNode *n = new_node(NODE_BINARY, prev_line, prev_col);
         n->binary_op = OP_SUB;
         add_child(n, zero);
         add_child(n, right);
@@ -335,7 +345,7 @@ static ASTNode *parse_factor()
             op = OP_MOD;
         advance_token();
         ASTNode *right = parse_unary();
-        ASTNode *bin = new_node(NODE_BINARY);
+        ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
         bin->binary_op = op;
         add_child(bin, node);
         add_child(bin, right);
@@ -352,7 +362,7 @@ static ASTNode *parse_arithmetic()
         BinaryOp op = current.type == TOKEN_PLUS ? OP_ADD : OP_SUB;
         advance_token();
         ASTNode *right = parse_factor();
-        ASTNode *bin = new_node(NODE_BINARY);
+        ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
         bin->binary_op = op;
         add_child(bin, node);
         add_child(bin, right);
@@ -369,7 +379,7 @@ static ASTNode *parse_expression()
         BinaryOp op = current.type == TOKEN_EQ ? OP_EQ : OP_STRICT_EQ;
         advance_token();
         ASTNode *right = parse_arithmetic();
-        ASTNode *bin = new_node(NODE_BINARY);
+        ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
         bin->binary_op = op;
         add_child(bin, node);
         add_child(bin, right);
@@ -400,7 +410,7 @@ static ASTNode *parse_primary()
         return expr;
     }
 
-    log_error("Invalid expression");
+    log_script_error(current.line, current.column, "Invalid expression");
     exit(1);
 }
 
@@ -412,6 +422,8 @@ ASTNode *parse_argument()
 ASTNode *parse_object_literal()
 {
     expect(TOKEN_LBRACE, "'{'");
+    int line = prev_line;
+    int col = prev_col;
 
     int cap = 4, count = 0;
     KeyValuePair *pairs = malloc(cap * sizeof(KeyValuePair));
@@ -430,7 +442,7 @@ ASTNode *parse_object_literal()
 
         if (current.type != TOKEN_IDENTIFIER)
         {
-            log_error("Expected key in object");
+            log_script_error(current.line, current.column, "Expected key in object");
             exit(1);
         }
 
@@ -471,7 +483,7 @@ ASTNode *parse_object_literal()
         }
         else
         {
-            log_error("Expected literal value in object");
+            log_script_error(current.line, current.column, "Expected literal value in object");
             exit(1);
         }
 
@@ -495,7 +507,7 @@ ASTNode *parse_object_literal()
     obj->capacity = cap;
     obj->pairs = pairs;
 
-    ASTNode *obj_node = new_node(NODE_LITERAL);
+    ASTNode *obj_node = new_node(NODE_LITERAL, line, col);
     obj_node->literal_value.type = VAL_OBJECT;
     obj_node->literal_value.obj = obj;
 
@@ -504,10 +516,12 @@ ASTNode *parse_object_literal()
 
 static ASTNode *parse_return_stmt()
 {
-    ASTNode *n = new_node(NODE_RETURN);
+    int line = prev_line;
+    int col = prev_col;
+    ASTNode *n = new_node(NODE_RETURN, line, col);
     if (current.type == TOKEN_NEWLINE || current.type == TOKEN_DEDENT || current.type == TOKEN_EOF)
     {
-        ASTNode *undef = new_node(NODE_LITERAL);
+        ASTNode *undef = new_node(NODE_LITERAL, line, col);
         undef->literal_value.type = VAL_UNDEFINED;
         add_child(n, undef);
     }
@@ -521,7 +535,9 @@ static ASTNode *parse_return_stmt()
 
 static ASTNode *parse_block()
 {
-    ASTNode *block = new_node(NODE_BLOCK);
+    int line = prev_line;
+    int col = prev_col;
+    ASTNode *block = new_node(NODE_BLOCK, line, col);
     if (match(TOKEN_NEWLINE))
     {
         expect(TOKEN_INDENT, "indent");
@@ -547,7 +563,7 @@ static ASTNode *parse_block()
 
 static ASTNode *parse_if_stmt()
 {
-    ASTNode *node = new_node(NODE_IF);
+    ASTNode *node = new_node(NODE_IF, prev_line, prev_col);
     ASTNode *cond = parse_expression();
     expect(TOKEN_COLON, "':'");
     ASTNode *then_block = parse_block();
@@ -581,7 +597,7 @@ static ASTNode *parse_statement()
     if (current.type == TOKEN_IDENTIFIER)
         return parse_func_call();
 
-    log_error("Parse error: unexpected token '%s'", current.value);
+    log_script_error(current.line, current.column, "Parse error: unexpected token '%s'", current.value);
     exit(1);
 }
 
@@ -589,7 +605,9 @@ static ASTNode *parse_statement()
 ASTNode **parse_program(Lexer *lexer, int *out_count)
 {
     L = lexer;
-    advance_token();
+    current = next_token(L);
+    prev_line = current.line;
+    prev_col = current.column;
 
     int cap = 8, count = 0;
     ASTNode **list = malloc(sizeof(ASTNode *) * cap);

@@ -56,10 +56,13 @@ typedef struct ASTNode
     // Literal value (used for NODE_LITERAL)
     Value literal_value;
 
+    int line;
+    int column;
+
 } ASTNode;
 
 /* Helpers */
-ASTNode *new_node(NodeType type);
+ASTNode *new_node(NodeType type, int line, int column);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */
