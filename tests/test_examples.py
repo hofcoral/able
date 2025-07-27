@@ -18,6 +18,7 @@ EXAMPLES = {
     'examples/variables/equality.abl': 'true\ntrue\nfalse\ntrue\n',
     'examples/variables/bool_func.abl': 'false\ntrue\nfalse\n',
     'examples/control/if_else.abl': 'B\n',
+    'examples/variables/comparison.abl': 'true\ntrue\ntrue\ntrue\n',
 }
 
 class ExampleTests(unittest.TestCase):

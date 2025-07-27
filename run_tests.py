@@ -42,6 +42,8 @@ def main():
     assert run('set f to (): return\npr(type(f))') == 'FUNCTION\n'
     assert run_raises('pr(type())')
     assert run_raises('pr(type(a,b))')
+    assert run('pr(1 < 2)') == 'true\n'
+    assert run('pr("b" > "a")') == 'true\n'
 
     print("All tests passed.")
     sys.exit(0)
