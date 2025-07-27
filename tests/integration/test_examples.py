@@ -1,8 +1,7 @@
 import unittest
-import subprocess
-from pathlib import Path
 
-EXE = Path('build/able_exe')
+from tests.integration.helpers import AbleTestCase
+
 EXAMPLES = {
     'examples/variables/basic_assignment.abl': 'Daniel22.000000\n\n',
     'examples/objects/attr_set.abl': '30.000000\nWonderland\n',
@@ -19,18 +18,21 @@ EXAMPLES = {
     'examples/variables/bool_func.abl': 'false\ntrue\nfalse\n',
     'examples/control/if_else.abl': 'B\n',
     'examples/variables/comparison.abl': 'true\ntrue\ntrue\ntrue\n',
+    'examples/control/if_comp_lt.abl': 'lt\n',
+    'examples/control/if_comp_gt.abl': 'gt\n',
+    'examples/control/if_comp_lte.abl': 'lte\n',
+    'examples/control/if_comp_gte.abl': 'gte\n',
+    'examples/types/string_type.abl': 'STRING\n',
+    'examples/types/number_type.abl': 'NUMBER\n',
+    'examples/types/boolean_type.abl': 'BOOLEAN\n',
+    'examples/types/null_type.abl': 'NULL\n',
+    'examples/types/object_type.abl': 'OBJECT\n',
+    'examples/types/function_type.abl': 'FUNCTION\n',
 }
 
-class ExampleTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        subprocess.run(['make'], check=True)
-        if not EXE.exists():
-            raise RuntimeError('Executable not built')
-
+class ExampleTests(AbleTestCase):
     def run_example(self, path):
-        result = subprocess.run([str(EXE), path], check=True, capture_output=True, text=True)
-        return result.stdout
+        return self.run_script(path)
 
     def test_examples(self):
         for file, expected in EXAMPLES.items():

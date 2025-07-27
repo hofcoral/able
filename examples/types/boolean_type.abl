@@ -1,0 +1,2 @@
+set x to true
+pr(type(x))
