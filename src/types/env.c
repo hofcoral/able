@@ -13,8 +13,6 @@ Env *env_create(Env *parent)
     Env *env = malloc(sizeof(Env));
     env->parent = parent;
     env->vars = NULL;
-    env->count = 0;
-    env->capacity = 0;
     env->ref_count = 1;
     return env;
 }
@@ -33,24 +31,23 @@ void env_release(Env *env)
     if (--env->ref_count > 0)
         return;
 
-    for (int i = 0; i < env->count; ++i)
+    Variable *cur, *tmp;
+    HASH_ITER(hh, env->vars, cur, tmp)
     {
-        free(env->vars[i].name);
-        free_value(env->vars[i].value);
+        HASH_DEL(env->vars, cur);
+        free(cur->name);
+        free_value(cur->value);
+        free(cur);
     }
 
-    free(env->vars);
     free(env);
 }
 
 static Variable *find_var(Env *env, const char *name)
 {
-    for (int i = 0; i < env->count; ++i)
-    {
-        if (strcmp(env->vars[i].name, name) == 0)
-            return &env->vars[i];
-    }
-    return NULL;
+    Variable *var = NULL;
+    HASH_FIND_STR(env->vars, name, var);
+    return var;
 }
 
 void set_variable(Env *env, const char *name, Value val)
@@ -68,15 +65,10 @@ void set_variable(Env *env, const char *name, Value val)
     }
 
     // Add to current environment
-    if (env->count == env->capacity)
-    {
-        env->capacity = env->capacity ? env->capacity * 2 : 4;
-        env->vars = realloc(env->vars, sizeof(Variable) * env->capacity);
-    }
-
-    env->vars[env->count].name = strdup(name);
-    env->vars[env->count].value = clone_value(&val);
-    env->count++;
+    Variable *new_var = malloc(sizeof(Variable));
+    new_var->name = strdup(name);
+    new_var->value = clone_value(&val);
+    HASH_ADD_KEYPTR(hh, env->vars, new_var->name, strlen(new_var->name), new_var);
 }
 
 Value get_variable(Env *env, const char *name, int line, int column)

@@ -3,20 +3,19 @@
 
 #include "types/value.h"
 
-#define MAX_VARS 128
+#include "uthash.h"
 
-typedef struct
+typedef struct Variable
 {
-    char *name;
-    Value value;
+    char *name;           // key
+    Value value;          // stored value
+    UT_hash_handle hh;    // uthash handle
 } Variable;
 
 typedef struct Env
 {
     struct Env *parent;
-    Variable *vars;
-    int count;
-    int capacity;
+    Variable *vars;       // hash table of variables
     int ref_count;
 } Env;
 

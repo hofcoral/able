@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -g -Isrc -D_GNU_SOURCE
+CFLAGS = -Wall -Wextra -std=c99 -g -Isrc -Ivendor -D_GNU_SOURCE
 LDFLAGS = -lm
 SRC_DIR = src
 BUILD_DIR = build
