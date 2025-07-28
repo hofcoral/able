@@ -42,23 +42,33 @@ typedef struct ASTNode
     struct ASTNode **children;
     int child_count;
 
-    // SET
-    char *set_name;
-    struct ASTNode *set_attr; // destination attribute chain if assigning to attr
-
-    // Attribute access
-    char *object_name;
-    char *attr_name;
-
-    // Function call
-    char *func_name;
-    struct ASTNode *func_callee; // allow attribute based calls
-
-    // Binary expression
-    BinaryOp binary_op;
-
-    // Literal value (used for NODE_LITERAL)
-    Value literal_value;
+    union
+    {
+        struct
+        {
+            char *set_name;
+            struct ASTNode *set_attr; // destination attribute chain if assigning to attr
+        } set;
+        struct
+        {
+            char *var_name;
+        } var;
+        struct
+        {
+            char *object_name;
+            char *attr_name;
+        } attr;
+        struct
+        {
+            char *func_name;
+            struct ASTNode *func_callee; // allow attribute based calls
+        } call;
+        struct
+        {
+            BinaryOp op;
+        } binary;
+        Value literal;
+    } data;
 
     int line;
     int column;
@@ -68,6 +78,13 @@ typedef struct ASTNode
 /* Helpers */
 ASTNode *new_node(NodeType type, int line, int column);
 void add_child(ASTNode *parent, ASTNode *child);
+
+ASTNode *new_set_node(char *name, ASTNode *attr, int line, int column);
+ASTNode *new_var_node(char *name, int line, int column);
+ASTNode *new_attr_node(char *object, char *attr, int line, int column);
+ASTNode *new_func_call_node(ASTNode *callee, char *func_name, int line, int column);
+ASTNode *new_literal_node(Value value, int line, int column);
+ASTNode *new_binary_node(BinaryOp op, int line, int column);
 
 /* Cleanup */
 void free_ast(ASTNode **nodes, int count);
