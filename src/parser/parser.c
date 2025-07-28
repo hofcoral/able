@@ -69,15 +69,10 @@ static ASTNode *parse_identifier_chain()
 
     if (!match(TOKEN_DOT))
     {
-        ASTNode *var = new_node(NODE_VAR, id_line, id_col);
-        var->data.set.set_name = first;
-        return var;
+        return new_var_node(first, id_line, id_col);
     }
 
-    ASTNode *base = new_node(NODE_ATTR_ACCESS, id_line, id_col);
-    base->data.attr.object_name = first;
-    base->child_count = 0;
-    base->children = NULL;
+    ASTNode *base = new_attr_access_node(first, NULL, id_line, id_col);
 
     do
     {
@@ -87,10 +82,8 @@ static ASTNode *parse_identifier_chain()
             exit(1);
         }
 
-        ASTNode *attr = new_node(NODE_ATTR_ACCESS, current.line, current.column);
-        attr->data.attr.attr_name = strdup(current.value);
-        attr->child_count = 0;
-        attr->children = NULL;
+        ASTNode *attr = new_attr_access_node(NULL, strdup(current.value),
+                                            current.line, current.column);
         advance_token();
 
         add_child(base, attr);
@@ -227,18 +220,19 @@ static ASTNode *parse_set_stmt()
 {
     int line = prev_line;
     int col = prev_col;
-    ASTNode *n = new_node(NODE_SET, line, col);
-
     ASTNode *dest = parse_identifier_chain();
+    char *set_name = NULL;
+    ASTNode *set_attr = NULL;
     if (dest->type == NODE_VAR)
     {
-        n->data.set.set_name = dest->data.set.set_name;
+        set_name = dest->data.set.set_name;
         free(dest);
     }
     else
     {
-        n->data.set.set_attr = dest;
+        set_attr = dest;
     }
+    ASTNode *n = new_set_node(set_name, set_attr, line, col);
 
     if (current.type != TOKEN_TO)
     {
@@ -284,13 +278,7 @@ static ASTNode *parse_set_stmt()
 
 static ASTNode *finish_func_call(ASTNode *callee)
 {
-    ASTNode *n = new_node(NODE_FUNC_CALL, callee->line, callee->column);
-    n->data.call.func_callee = callee;
-
-    if (callee->type == NODE_VAR)
-        n->data.call.func_name = strdup(callee->data.set.set_name);
-    else
-        n->data.call.func_name = NULL;
+    ASTNode *n = new_func_call_node(callee);
 
     expect(TOKEN_LPAREN, "'('");
 
