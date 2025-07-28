@@ -16,7 +16,9 @@ typedef enum
     NODE_RETURN,
     NODE_BINARY,
     NODE_IF,
-    NODE_BLOCK
+    NODE_BLOCK,
+    NODE_CLASS_DEF,
+    NODE_METHOD_DEF
 } NodeType;
 
 typedef enum
@@ -39,34 +41,68 @@ typedef struct ASTNode
     NodeType type;
 
     // Common
+    int line, column;
     struct ASTNode **children;
     int child_count;
+    bool is_static;
 
-    // SET
-    char *set_name;
-    struct ASTNode *set_attr; // destination attribute chain if assigning to attr
+    // Node-specific data
+    union
+    {
+        struct
+        {
+            char *set_name;
+            struct ASTNode *set_attr;
+        } set;
 
-    // Attribute access
-    char *object_name;
-    char *attr_name;
+        struct
+        {
+            char *object_name;
+            char *attr_name;
+        } attr;
 
-    // Function call
-    char *func_name;
-    struct ASTNode *func_callee; // allow attribute based calls
+        struct
+        {
+            char *func_name;
+            struct ASTNode *func_callee;
+        } call;
 
-    // Binary expression
-    BinaryOp binary_op;
+        struct
+        {
+            BinaryOp op;
+        } binary;
 
-    // Literal value (used for NODE_LITERAL)
-    Value literal_value;
+        struct
+        {
+            char *class_name;
+            char **base_names;
+            int base_count;
+        } cls;
 
-    int line;
-    int column;
+        struct
+        {
+            char *method_name;
+            char **params;
+            int param_count;
+        } method;
+
+        struct
+        {
+            Value literal_value;
+        } lit;
+
+        /* (add new kinds here—LIST_LITERAL, CLASS_DEF, FOR_LOOP, etc.) */
+    } data;
 
 } ASTNode;
 
 /* Helpers */
 ASTNode *new_node(NodeType type, int line, int column);
+ASTNode *new_var_node(char *name, int line, int column);
+ASTNode *new_attr_access_node(char *object_name, char *attr_name,
+                              int line, int column);
+ASTNode *new_set_node(char *name, struct ASTNode *attr, int line, int column);
+ASTNode *new_func_call_node(struct ASTNode *callee);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

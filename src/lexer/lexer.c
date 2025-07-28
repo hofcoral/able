@@ -83,42 +83,63 @@ Token next_token(Lexer *lexer)
 
     if (lexer->at_line_start)
     {
-        int indent = 0;
-        while (peek(lexer) == ' ')
+        while (1)
         {
-            advance(lexer);
-            indent++;
-        }
-
-        if (peek(lexer) == '\n')
-        {
-            advance(lexer);
-            lexer->line++;
-            lexer->line_start = lexer->pos;
-            return make_token(TOKEN_NEWLINE, "\n", 1, lexer->line - 1, 1);
-        }
-
-        if (indent > lexer->indent_stack[lexer->indent_top])
-        {
-            lexer->indent_top++;
-            lexer->indent_stack[lexer->indent_top] = indent;
-            lexer->at_line_start = 0;
-            return make_token(TOKEN_INDENT, "", 0, lexer->line, 1);
-        }
-
-        if (indent < lexer->indent_stack[lexer->indent_top])
-        {
-            while (indent < lexer->indent_stack[lexer->indent_top])
+            int indent = 0;
+            while (peek(lexer) == ' ' || peek(lexer) == '\t')
             {
-                lexer->indent_top--;
-                lexer->pending_dedents++;
+                advance(lexer);
+                indent++;
             }
-            lexer->at_line_start = 0;
-            lexer->pending_dedents--; /* return one dedent now */
-            return make_token(TOKEN_DEDENT, "", 0, lexer->line, 1);
-        }
 
-        lexer->at_line_start = 0;
+            char c = peek(lexer);
+
+            if (c == '\n')
+            {
+                advance(lexer);
+                lexer->line++;
+                lexer->line_start = lexer->pos;
+                continue; /* skip blank line */
+            }
+
+            if (c == '#' && lexer->source[lexer->pos + 1] != '#')
+            {
+                while (peek(lexer) != '\n' && peek(lexer) != '\0')
+                    advance(lexer);
+                continue; /* skip comment line */
+            }
+
+            if (c == '#' && lexer->pos + 1 < lexer->length &&
+                lexer->source[lexer->pos + 1] == '#')
+            {
+                lexer->pos += 2; /* skip initial ## */
+                skip_multiline_comment(lexer);
+                continue; /* multiline comment may span lines */
+            }
+
+            if (indent > lexer->indent_stack[lexer->indent_top])
+            {
+                lexer->indent_top++;
+                lexer->indent_stack[lexer->indent_top] = indent;
+                lexer->at_line_start = 0;
+                return make_token(TOKEN_INDENT, "", 0, lexer->line, 1);
+            }
+
+            if (indent < lexer->indent_stack[lexer->indent_top])
+            {
+                while (indent < lexer->indent_stack[lexer->indent_top])
+                {
+                    lexer->indent_top--;
+                    lexer->pending_dedents++;
+                }
+                lexer->at_line_start = 0;
+                lexer->pending_dedents--; /* return one dedent now */
+                return make_token(TOKEN_DEDENT, "", 0, lexer->line, 1);
+            }
+
+            lexer->at_line_start = 0;
+            break;
+        }
     }
 
     while (1)
@@ -192,6 +213,8 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_ELIF, start, len, lexer->line, column);
         if (len == 4 && strncmp(start, "else", len) == 0)
             return make_token(TOKEN_ELSE, start, len, lexer->line, column);
+        if (len == 5 && strncmp(start, "class", len) == 0)
+            return make_token(TOKEN_CLASS, start, len, lexer->line, column);
         if (len == 2 && strncmp(start, "pr", len) == 0)
             return make_token(TOKEN_IDENTIFIER, start, len, lexer->line, column);
         if (len == 3 && strncmp(start, "GET", len) == 0)
@@ -217,6 +240,17 @@ Token next_token(Lexer *lexer)
         while (isdigit(peek(lexer)))
             advance(lexer);
         return make_token(TOKEN_NUMBER, start, &lexer->source[lexer->pos] - start, lexer->line, column);
+    }
+
+    if (c == '@')
+    {
+        const char *start = &lexer->source[lexer->pos];
+        while (isalnum(peek(lexer)))
+            advance(lexer);
+        size_t len = &lexer->source[lexer->pos] - start;
+        if (len == 6 && strncmp(start, "static", len) == 0)
+            return make_token(TOKEN_AT_STATIC, &lexer->source[start_pos], len + 1, lexer->line, column);
+        return make_token(TOKEN_UNKNOWN, "@", 1, lexer->line, column);
     }
 
     // Strings

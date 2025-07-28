@@ -20,12 +20,13 @@ static Lexer *L;
 static ASTNode *parse_statement();
 static ASTNode *parse_return_stmt();
 static ASTNode *finish_func_call(ASTNode *callee);
-static ASTNode *parse_func_call();
 static ASTNode *parse_expression();
 static ASTNode *parse_arithmetic();
 static ASTNode *parse_block();
 static ASTNode *parse_if_stmt();
 static ASTNode *parse_list_literal();
+static ASTNode *parse_method_def(char *name, bool is_static, int line, int col);
+static ASTNode *parse_class_def();
 ASTNode *parse_argument();
 
 static void advance_token() {
@@ -69,15 +70,10 @@ static ASTNode *parse_identifier_chain()
 
     if (!match(TOKEN_DOT))
     {
-        ASTNode *var = new_node(NODE_VAR, id_line, id_col);
-        var->set_name = first;
-        return var;
+        return new_var_node(first, id_line, id_col);
     }
 
-    ASTNode *base = new_node(NODE_ATTR_ACCESS, id_line, id_col);
-    base->object_name = first;
-    base->child_count = 0;
-    base->children = NULL;
+    ASTNode *base = new_attr_access_node(first, NULL, id_line, id_col);
 
     do
     {
@@ -87,10 +83,8 @@ static ASTNode *parse_identifier_chain()
             exit(1);
         }
 
-        ASTNode *attr = new_node(NODE_ATTR_ACCESS, current.line, current.column);
-        attr->attr_name = strdup(current.value);
-        attr->child_count = 0;
-        attr->children = NULL;
+        ASTNode *attr = new_attr_access_node(NULL, strdup(current.value),
+                                            current.line, current.column);
         advance_token();
 
         add_child(base, attr);
@@ -105,37 +99,37 @@ static ASTNode *parse_literal_node()
 
     if (current.type == TOKEN_STRING)
     {
-        n->literal_value.type = VAL_STRING;
-        n->literal_value.str = strdup(current.value);
+        n->data.lit.literal_value.type = VAL_STRING;
+        n->data.lit.literal_value.str = strdup(current.value);
         advance_token();
     }
     else if (current.type == TOKEN_NUMBER)
     {
-        n->literal_value.type = VAL_NUMBER;
-        n->literal_value.num = atof(current.value);
+        n->data.lit.literal_value.type = VAL_NUMBER;
+        n->data.lit.literal_value.num = atof(current.value);
         advance_token();
     }
     else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
     {
-        n->literal_value.type = VAL_BOOL;
-        n->literal_value.boolean = (current.type == TOKEN_TRUE);
+        n->data.lit.literal_value.type = VAL_BOOL;
+        n->data.lit.literal_value.boolean = (current.type == TOKEN_TRUE);
         advance_token();
     }
     else if (current.type == TOKEN_NULL)
     {
-        n->literal_value.type = VAL_NULL;
+        n->data.lit.literal_value.type = VAL_NULL;
         advance_token();
     }
     else if (current.type == TOKEN_LBRACE)
     {
         ASTNode *obj = parse_object_literal();
-        n->literal_value = obj->literal_value;
+        n->data.lit.literal_value = obj->data.lit.literal_value;
         free(obj);
     }
     else if (current.type == TOKEN_LBRACKET)
     {
         ASTNode *lst = parse_list_literal();
-        n->literal_value = lst->literal_value;
+        n->data.lit.literal_value = lst->data.lit.literal_value;
         free(lst);
     }
     else
@@ -147,7 +141,8 @@ static ASTNode *parse_literal_node()
     return n;
 }
 
-static Function *parse_function_def()
+static void parse_function_parts(char ***out_params, int *out_param_count,
+                                 ASTNode ***out_body, int *out_body_count)
 {
     expect(TOKEN_LPAREN, "'('");
 
@@ -212,13 +207,28 @@ static Function *parse_function_def()
         body[body_count++] = parse_statement();
     }
 
+    *out_params = params;
+    *out_param_count = count;
+    *out_body = body;
+    *out_body_count = body_count;
+}
+
+static Function *parse_function_def()
+{
+    char **params;
+    int param_count;
+    ASTNode **body;
+    int body_count;
+    parse_function_parts(&params, &param_count, &body, &body_count);
+
     Function *fn = malloc(sizeof(Function));
     fn->name = NULL;
-    fn->param_count = count;
+    fn->param_count = param_count;
     fn->params = params;
     fn->body = body;
     fn->body_count = body_count;
     fn->env = NULL;
+    fn->bind_on_access = false;
     return fn;
 }
 
@@ -227,18 +237,19 @@ static ASTNode *parse_set_stmt()
 {
     int line = prev_line;
     int col = prev_col;
-    ASTNode *n = new_node(NODE_SET, line, col);
-
     ASTNode *dest = parse_identifier_chain();
+    char *set_name = NULL;
+    ASTNode *set_attr = NULL;
     if (dest->type == NODE_VAR)
     {
-        n->set_name = dest->set_name;
+        set_name = dest->data.set.set_name;
         free(dest);
     }
     else
     {
-        n->set_attr = dest;
+        set_attr = dest;
     }
+    ASTNode *n = new_set_node(set_name, set_attr, line, col);
 
     if (current.type != TOKEN_TO)
     {
@@ -267,10 +278,10 @@ static ASTNode *parse_set_stmt()
         if (is_func)
         {
             Function *fn = parse_function_def();
-            fn->name = strdup(n->set_name);
+            fn->name = strdup(n->data.set.set_name);
             ASTNode *lit = new_node(NODE_LITERAL, line, col);
-            lit->literal_value.type = VAL_FUNCTION;
-            lit->literal_value.func = fn;
+            lit->data.lit.literal_value.type = VAL_FUNCTION;
+            lit->data.lit.literal_value.func = fn;
             add_child(n, lit);
             return n;
         }
@@ -282,15 +293,165 @@ static ASTNode *parse_set_stmt()
     return n;
 }
 
+static ASTNode *parse_to_assignment(ASTNode *dest)
+{
+    int line = dest->line;
+    int col = dest->column;
+
+    char *set_name = NULL;
+    ASTNode *set_attr = NULL;
+    if (dest->type == NODE_VAR)
+    {
+        set_name = dest->data.set.set_name;
+        free(dest);
+    }
+    else
+    {
+        set_attr = dest;
+    }
+
+    ASTNode *n = new_set_node(set_name, set_attr, line, col);
+
+    if (current.type == TOKEN_LPAREN)
+    {
+        size_t save_pos = L->pos;
+        int is_func = 0;
+        int depth = 1;
+        while (save_pos < L->length && depth > 0)
+        {
+            char c = L->source[save_pos++];
+            if (c == '(')
+                depth++;
+            else if (c == ')')
+                depth--;
+        }
+        if (depth == 0 && save_pos < L->length && L->source[save_pos] == ':')
+            is_func = 1;
+
+        if (is_func)
+        {
+            Function *fn = parse_function_def();
+            fn->name = set_name ? strdup(set_name) : NULL;
+            ASTNode *lit = new_node(NODE_LITERAL, line, col);
+            lit->data.lit.literal_value.type = VAL_FUNCTION;
+            lit->data.lit.literal_value.func = fn;
+            add_child(n, lit);
+            return n;
+        }
+    }
+
+    ASTNode *expr = parse_expression();
+    add_child(n, expr);
+
+    return n;
+}
+static ASTNode *parse_class_def()
+{
+    int line = prev_line;
+    int col = prev_col;
+    if (current.type != TOKEN_IDENTIFIER)
+    {
+        log_script_error(current.line, current.column, "Expected class name");
+        exit(1);
+    }
+    char *name = strdup(current.value);
+    advance_token();
+
+    expect(TOKEN_LPAREN, "'('");
+
+    int cap = 4, count = 0;
+    char **bases = malloc(sizeof(char *) * cap);
+    if (current.type != TOKEN_RPAREN)
+    {
+        while (1)
+        {
+            if (current.type != TOKEN_IDENTIFIER)
+            {
+                log_script_error(current.line, current.column, "Expected base name");
+                exit(1);
+            }
+            if (count == cap)
+            {
+                cap *= 2;
+                bases = realloc(bases, sizeof(char *) * cap);
+            }
+            bases[count++] = strdup(current.value);
+            advance_token();
+            if (!match(TOKEN_COMMA))
+                break;
+        }
+    }
+    expect(TOKEN_RPAREN, ")");
+    expect(TOKEN_COLON, ":");
+
+    ASTNode *cls = new_node(NODE_CLASS_DEF, line, col);
+    cls->data.cls.class_name = name;
+    cls->data.cls.base_names = bases;
+    cls->data.cls.base_count = count;
+
+    if (!match(TOKEN_NEWLINE))
+    {
+        log_script_error(current.line, current.column, "Expected newline after class header");
+        exit(1);
+    }
+    expect(TOKEN_INDENT, "indent");
+    bool static_flag = false;
+    while (current.type != TOKEN_DEDENT && current.type != TOKEN_EOF)
+    {
+        if (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT)
+        {
+            advance_token();
+            continue;
+        }
+        if (match(TOKEN_AT_STATIC))
+        {
+            static_flag = true;
+            continue;
+        }
+        if (match(TOKEN_SET))
+        {
+            if (current.type != TOKEN_IDENTIFIER)
+            {
+                log_script_error(current.line, current.column, "Expected method name");
+                exit(1);
+            }
+            char *mname = strdup(current.value);
+            advance_token();
+            expect(TOKEN_TO, "to");
+            ASTNode *m = parse_method_def(mname, static_flag, prev_line, prev_col);
+            add_child(cls, m);
+            static_flag = false;
+            continue;
+        }
+
+        log_script_error(current.line, current.column, "Unexpected token in class body");
+        exit(1);
+    }
+    expect(TOKEN_DEDENT, "dedent");
+    return cls;
+}
+
+static ASTNode *parse_method_def(char *name, bool is_static, int line, int col)
+{
+    char **params;
+    int param_count;
+    ASTNode **body;
+    int body_count;
+    parse_function_parts(&params, &param_count, &body, &body_count);
+
+    ASTNode *m = new_node(NODE_METHOD_DEF, line, col);
+    m->data.method.method_name = name;
+    m->data.method.params = params;
+    m->data.method.param_count = param_count;
+    m->children = body;
+    m->child_count = body_count;
+    m->is_static = is_static;
+    return m;
+}
+
 static ASTNode *finish_func_call(ASTNode *callee)
 {
-    ASTNode *n = new_node(NODE_FUNC_CALL, callee->line, callee->column);
-    n->func_callee = callee;
-
-    if (callee->type == NODE_VAR)
-        n->func_name = strdup(callee->set_name);
-    else
-        n->func_name = NULL;
+    ASTNode *n = new_func_call_node(callee);
 
     expect(TOKEN_LPAREN, "'('");
 
@@ -313,12 +474,6 @@ static ASTNode *finish_func_call(ASTNode *callee)
     return n;
 }
 
-static ASTNode *parse_func_call()
-{
-    ASTNode *callee = parse_identifier_chain();
-    return finish_func_call(callee);
-}
-
 static ASTNode *parse_primary();
 static ASTNode *parse_expression();
 
@@ -328,10 +483,10 @@ static ASTNode *parse_unary()
     {
         ASTNode *right = parse_unary();
         ASTNode *zero = new_node(NODE_LITERAL, prev_line, prev_col);
-        zero->literal_value.type = VAL_NUMBER;
-        zero->literal_value.num = 0;
+        zero->data.lit.literal_value.type = VAL_NUMBER;
+        zero->data.lit.literal_value.num = 0;
         ASTNode *n = new_node(NODE_BINARY, prev_line, prev_col);
-        n->binary_op = OP_SUB;
+        n->data.binary.op = OP_SUB;
         add_child(n, zero);
         add_child(n, right);
         return n;
@@ -354,7 +509,7 @@ static ASTNode *parse_factor()
         advance_token();
         ASTNode *right = parse_unary();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
-        bin->binary_op = op;
+        bin->data.binary.op = op;
         add_child(bin, node);
         add_child(bin, right);
         node = bin;
@@ -371,7 +526,7 @@ static ASTNode *parse_arithmetic()
         advance_token();
         ASTNode *right = parse_factor();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
-        bin->binary_op = op;
+        bin->data.binary.op = op;
         add_child(bin, node);
         add_child(bin, right);
         node = bin;
@@ -410,7 +565,7 @@ static ASTNode *parse_expression()
         advance_token();
         ASTNode *right = parse_arithmetic();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
-        bin->binary_op = op;
+        bin->data.binary.op = op;
         add_child(bin, node);
         add_child(bin, right);
         node = bin;
@@ -509,7 +664,7 @@ ASTNode *parse_object_literal()
         else if (current.type == TOKEN_LBRACE)
         {
             ASTNode *inner_obj_node = parse_object_literal();
-            val = inner_obj_node->literal_value;
+            val = inner_obj_node->data.lit.literal_value;
             free(inner_obj_node);
         }
         else
@@ -539,8 +694,8 @@ ASTNode *parse_object_literal()
     obj->pairs = pairs;
 
     ASTNode *obj_node = new_node(NODE_LITERAL, line, col);
-    obj_node->literal_value.type = VAL_OBJECT;
-    obj_node->literal_value.obj = obj;
+    obj_node->data.lit.literal_value.type = VAL_OBJECT;
+    obj_node->data.lit.literal_value.obj = obj;
 
     return obj_node;
 }
@@ -591,13 +746,13 @@ ASTNode *parse_list_literal()
         else if (current.type == TOKEN_LBRACE)
         {
             ASTNode *obj = parse_object_literal();
-            items[count] = obj->literal_value;
+            items[count] = obj->data.lit.literal_value;
             free(obj);
         }
         else if (current.type == TOKEN_LBRACKET)
         {
             ASTNode *lst = parse_list_literal();
-            items[count] = lst->literal_value;
+            items[count] = lst->data.lit.literal_value;
             free(lst);
         }
         else
@@ -623,8 +778,8 @@ ASTNode *parse_list_literal()
     list->items = items;
 
     ASTNode *node = new_node(NODE_LITERAL, line, col);
-    node->literal_value.type = VAL_LIST;
-    node->literal_value.list = list;
+    node->data.lit.literal_value.type = VAL_LIST;
+    node->data.lit.literal_value.list = list;
     return node;
 }
 
@@ -636,7 +791,7 @@ static ASTNode *parse_return_stmt()
     if (current.type == TOKEN_NEWLINE || current.type == TOKEN_DEDENT || current.type == TOKEN_EOF)
     {
         ASTNode *undef = new_node(NODE_LITERAL, line, col);
-        undef->literal_value.type = VAL_UNDEFINED;
+        undef->data.lit.literal_value.type = VAL_UNDEFINED;
         add_child(n, undef);
     }
     else
@@ -708,8 +863,20 @@ static ASTNode *parse_statement()
         return parse_return_stmt();
     if (match(TOKEN_IF))
         return parse_if_stmt();
+    if (match(TOKEN_CLASS))
+        return parse_class_def();
     if (current.type == TOKEN_IDENTIFIER)
-        return parse_func_call();
+    {
+        ASTNode *id = parse_identifier_chain();
+        if (match(TOKEN_TO))
+            return parse_to_assignment(id);
+        if (current.type == TOKEN_LPAREN)
+            return finish_func_call(id);
+
+        log_script_error(current.line, current.column,
+                         "Parse error: unexpected token '%s'", current.value);
+        exit(1);
+    }
 
     log_script_error(current.line, current.column, "Parse error: unexpected token '%s'", current.value);
     exit(1);

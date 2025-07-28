@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "ast/ast.h"
 
@@ -8,6 +9,42 @@ ASTNode *new_node(NodeType type, int line, int column)
     n->type = type;
     n->line = line;
     n->column = column;
+    n->is_static = false;
+    return n;
+}
+
+ASTNode *new_var_node(char *name, int line, int column)
+{
+    ASTNode *n = new_node(NODE_VAR, line, column);
+    n->data.set.set_name = name;
+    return n;
+}
+
+ASTNode *new_attr_access_node(char *object_name, char *attr_name,
+                              int line, int column)
+{
+    ASTNode *n = new_node(NODE_ATTR_ACCESS, line, column);
+    n->data.attr.object_name = object_name;
+    n->data.attr.attr_name = attr_name;
+    return n;
+}
+
+ASTNode *new_set_node(char *name, ASTNode *attr, int line, int column)
+{
+    ASTNode *n = new_node(NODE_SET, line, column);
+    n->data.set.set_name = name;
+    n->data.set.set_attr = attr;
+    return n;
+}
+
+ASTNode *new_func_call_node(ASTNode *callee)
+{
+    ASTNode *n = new_node(NODE_FUNC_CALL, callee->line, callee->column);
+    n->data.call.func_callee = callee;
+    if (callee->type == NODE_VAR)
+        n->data.call.func_name = strdup(callee->data.set.set_name);
+    else
+        n->data.call.func_name = NULL;
     return n;
 }
 
@@ -24,27 +61,43 @@ static void free_node(ASTNode *n)
 
     if (n->type == NODE_SET)
     {
-        free(n->set_name);
-        if (n->set_attr)
-            free_node(n->set_attr);
+        free(n->data.set.set_name);
+        if (n->data.set.set_attr)
+            free_node(n->data.set.set_attr);
     }
 
     if (n->type == NODE_LITERAL)
     {
-        free_value(n->literal_value);
+        free_value(n->data.lit.literal_value);
     }
 
     if (n->type == NODE_FUNC_CALL)
     {
-        free(n->func_name);
-        if (n->func_callee)
-            free_node(n->func_callee);
+        free(n->data.call.func_name);
+        if (n->data.call.func_callee)
+            free_node(n->data.call.func_callee);
     }
 
     if (n->type == NODE_ATTR_ACCESS)
     {
-        free(n->object_name);
-        free(n->attr_name);
+        free(n->data.attr.object_name);
+        free(n->data.attr.attr_name);
+    }
+
+    if (n->type == NODE_CLASS_DEF)
+    {
+        free(n->data.cls.class_name);
+        for (int i = 0; i < n->data.cls.base_count; ++i)
+            free(n->data.cls.base_names[i]);
+        free(n->data.cls.base_names);
+    }
+
+    if (n->type == NODE_METHOD_DEF)
+    {
+        free(n->data.method.method_name);
+        for (int i = 0; i < n->data.method.param_count; ++i)
+            free(n->data.method.params[i]);
+        free(n->data.method.params);
     }
 
     // Free any children (used for all types with nested structure)

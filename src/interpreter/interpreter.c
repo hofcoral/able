@@ -8,6 +8,9 @@
 #include "types/env.h"
 #include "types/function.h"
 #include "types/list.h"
+#include "types/type.h"
+#include "types/instance.h"
+#include "interpreter/attr.h"
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/stack.h"
@@ -51,6 +54,8 @@ static bool to_boolean(Value v)
         return true;
     }
 }
+
+
 
 static bool strict_equal(Value a, Value b)
 {
@@ -97,7 +102,7 @@ static bool loose_equal(Value a, Value b)
 
 static Value resolve_attr_prefix(ASTNode *attr_node, int count)
 {
-    Value base = get_variable(interpreter_current_env(), attr_node->object_name,
+    Value base = get_variable(interpreter_current_env(), attr_node->data.attr.object_name,
                               attr_node->line, attr_node->column);
     for (int i = 0; i < count; ++i)
     {
@@ -106,10 +111,10 @@ static Value resolve_attr_prefix(ASTNode *attr_node, int count)
             log_script_error(attr_node->children[i]->line,
                               attr_node->children[i]->column,
                               "Error: intermediate '%s' is not an object",
-                              attr_node->children[i]->attr_name);
+                              attr_node->children[i]->data.attr.attr_name);
             exit(1);
         }
-        base = object_get(base.obj, attr_node->children[i]->attr_name);
+        base = object_get(base.obj, attr_node->children[i]->data.attr.attr_name);
     }
     return base;
 }
@@ -145,27 +150,27 @@ static Value eval_node(ASTNode *n)
     switch (n->type)
     {
     case NODE_VAR:
-        return get_variable(interpreter_current_env(), n->set_name, n->line, n->column);
+        return get_variable(interpreter_current_env(), n->data.set.set_name, n->line, n->column);
     case NODE_ATTR_ACCESS:
         return resolve_attribute_chain(n);
     case NODE_LITERAL:
-        return clone_value(&n->literal_value);
+        return clone_value(&n->data.lit.literal_value);
     case NODE_FUNC_CALL:
         return exec_func_call(n);
     case NODE_BINARY:
     {
         Value left = eval_node(n->children[0]);
         Value right = eval_node(n->children[1]);
-        if (n->binary_op == OP_EQ || n->binary_op == OP_STRICT_EQ)
+        if (n->data.binary.op == OP_EQ || n->data.binary.op == OP_STRICT_EQ)
         {
-            bool eq = n->binary_op == OP_EQ ? loose_equal(left, right)
+            bool eq = n->data.binary.op == OP_EQ ? loose_equal(left, right)
                                             : strict_equal(left, right);
             Value res = {.type = VAL_BOOL, .boolean = eq};
             return res;
         }
 
-        if (n->binary_op == OP_LT || n->binary_op == OP_GT ||
-            n->binary_op == OP_LTE || n->binary_op == OP_GTE)
+        if (n->data.binary.op == OP_LT || n->data.binary.op == OP_GT ||
+            n->data.binary.op == OP_LTE || n->data.binary.op == OP_GTE)
         {
             bool cmp;
             if ((left.type == VAL_NUMBER || left.type == VAL_BOOL) &&
@@ -173,7 +178,7 @@ static Value eval_node(ASTNode *n)
             {
                 double ln = to_number(left);
                 double rn = to_number(right);
-                switch (n->binary_op)
+                switch (n->data.binary.op)
                 {
                 case OP_LT:
                     cmp = ln < rn;
@@ -191,7 +196,7 @@ static Value eval_node(ASTNode *n)
             else if (left.type == VAL_STRING && right.type == VAL_STRING)
             {
                 int c = strcmp(left.str, right.str);
-                switch (n->binary_op)
+                switch (n->data.binary.op)
                 {
                 case OP_LT:
                     cmp = c < 0;
@@ -218,7 +223,7 @@ static Value eval_node(ASTNode *n)
         if (left.type == VAL_NUMBER && right.type == VAL_NUMBER)
         {
             Value res = {.type = VAL_NUMBER};
-            switch (n->binary_op)
+            switch (n->data.binary.op)
             {
             case OP_ADD:
                 res.num = left.num + right.num;
@@ -241,7 +246,7 @@ static Value eval_node(ASTNode *n)
             }
             return res;
         }
-        if (n->binary_op == OP_ADD && left.type == VAL_STRING && right.type == VAL_STRING)
+        if (n->data.binary.op == OP_ADD && left.type == VAL_STRING && right.type == VAL_STRING)
         {
             size_t len1 = strlen(left.str);
             size_t len2 = strlen(right.str);
@@ -252,7 +257,7 @@ static Value eval_node(ASTNode *n)
             Value res = {.type = VAL_STRING, .str = buf};
             return res;
         }
-        if (n->binary_op == OP_ADD && left.type == VAL_LIST && right.type == VAL_LIST)
+        if (n->data.binary.op == OP_ADD && left.type == VAL_LIST && right.type == VAL_LIST)
         {
             List *list = malloc(sizeof(List));
             list->count = 0;
@@ -296,7 +301,7 @@ static Value eval_node(ASTNode *n)
 
 static Value exec_func_call(ASTNode *n)
 {
-    if (n->func_callee->type == NODE_VAR && strcmp(n->func_callee->set_name, "pr") == 0)
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "pr") == 0)
     {
         for (int j = 0; j < n->child_count; ++j)
         {
@@ -308,7 +313,7 @@ static Value exec_func_call(ASTNode *n)
         return undef;
     }
 
-    if (n->func_callee->type == NODE_VAR && strcmp(n->func_callee->set_name, "type") == 0)
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "type") == 0)
     {
         if (n->child_count != 1)
         {
@@ -321,7 +326,7 @@ static Value exec_func_call(ASTNode *n)
         return res;
     }
 
-    if (n->func_callee->type == NODE_VAR && strcmp(n->func_callee->set_name, "bool") == 0)
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "bool") == 0)
     {
         if (n->child_count != 1)
         {
@@ -333,7 +338,7 @@ static Value exec_func_call(ASTNode *n)
         return res;
     }
 
-    if (n->func_callee->type == NODE_VAR && strcmp(n->func_callee->set_name, "list") == 0)
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "list") == 0)
     {
         if (n->child_count > 1)
         {
@@ -361,13 +366,13 @@ static Value exec_func_call(ASTNode *n)
         return res;
     }
 
-    if (n->func_callee->type == NODE_ATTR_ACCESS)
+    if (n->data.call.func_callee->type == NODE_ATTR_ACCESS)
     {
-        ASTNode *attr = n->func_callee;
+        ASTNode *attr = n->data.call.func_callee;
         if (attr->child_count > 0)
         {
             ASTNode *last = attr->children[attr->child_count - 1];
-            const char *name = last->attr_name;
+            const char *name = last->data.attr.attr_name;
             Value target = resolve_attr_prefix(attr, attr->child_count - 1);
             if (target.type == VAL_LIST)
             {
@@ -435,7 +440,66 @@ static Value exec_func_call(ASTNode *n)
         }
     }
 
-    Value callee_val = eval_node(n->func_callee);
+    Value callee_val = eval_node(n->data.call.func_callee);
+    if (callee_val.type == VAL_BOUND_METHOD)
+    {
+        Function *fn = callee_val.bound->func;
+        if (fn->param_count - 1 != n->child_count)
+        {
+            log_script_error(n->line, n->column,
+                             "Function '%s' expects %d arguments, but got %d",
+                             n->data.call.func_name,
+                             fn->param_count - 1, n->child_count);
+            exit(1);
+        }
+
+        Env *call_env = env_create(fn->env);
+        Value self_val = {.type = VAL_INSTANCE, .instance = callee_val.bound->self};
+        set_variable(call_env, fn->params[0], self_val);
+        for (int p = 0; p < n->child_count; ++p)
+        {
+            Value arg_val = eval_node(n->children[p]);
+            set_variable(call_env, fn->params[p + 1], arg_val);
+        }
+        CallFrame frame = {.env = call_env, .return_ptr = NULL, .returning = false};
+        push_frame(&call_stack, frame);
+        Value result = run_ast(fn->body, fn->body_count);
+        pop_frame(&call_stack);
+        Value ret_val = clone_value(&result);
+        env_release(call_env);
+        return ret_val;
+    }
+    if (callee_val.type == VAL_TYPE)
+    {
+        Instance *inst = instance_create(callee_val.cls);
+        Value inst_val = {.type = VAL_INSTANCE, .instance = inst};
+        Value init = value_get_attr(inst_val, "init");
+        if (init.type == VAL_BOUND_METHOD)
+        {
+            Function *fn = init.bound->func;
+            if (fn->param_count - 1 != n->child_count)
+            {
+                log_script_error(n->line, n->column,
+                                 "init expects %d arguments, got %d",
+                                 fn->param_count - 1, n->child_count);
+                exit(1);
+            }
+            Env *env = env_create(fn->env);
+            Value selfv = {.type = VAL_INSTANCE, .instance = init.bound->self};
+            set_variable(env, fn->params[0], selfv);
+            for (int p = 0; p < n->child_count; ++p)
+            {
+                Value arg_val = eval_node(n->children[p]);
+                set_variable(env, fn->params[p + 1], arg_val);
+            }
+            CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
+            push_frame(&call_stack, frame);
+            run_ast(fn->body, fn->body_count);
+            pop_frame(&call_stack);
+            env_release(env);
+        }
+        return inst_val;
+    }
     if (callee_val.type != VAL_FUNCTION)
     {
         log_script_error(n->line, n->column, "Attempting to call non-function");
@@ -449,7 +513,7 @@ static Value exec_func_call(ASTNode *n)
     if (callee_val.func->param_count != n->child_count)
     {
         log_script_error(n->line, n->column, "Function '%s' expects %d arguments, but got %d",
-                  n->func_name,
+                  n->data.call.func_name,
                   fn->param_count,
                   n->child_count);
         exit(1);
@@ -476,14 +540,15 @@ Value run_ast(ASTNode **nodes, int count)
     for (int i = 0; i < count; ++i)
     {
         ASTNode *n = nodes[i];
-
-        if (n->type == NODE_SET)
+        switch (n->type)
+        {
+        case NODE_SET:
         {
             Value result = eval_node(n->children[0]);
 
-            if (n->set_attr)
+            if (n->data.set.set_attr)
             {
-                assign_attribute_chain(n->set_attr, result);
+                assign_attribute_chain(n->data.set.set_attr, result);
             }
             else
             {
@@ -492,14 +557,58 @@ Value run_ast(ASTNode **nodes, int count)
                     result.func->env = interpreter_current_env();
                     env_retain(interpreter_current_env());
                 }
-                set_variable(interpreter_current_env(), n->set_name, result);
+                set_variable(interpreter_current_env(), n->data.set.set_name, result);
             }
+            break;
         }
-        else if (n->type == NODE_FUNC_CALL)
+        case NODE_CLASS_DEF:
         {
-            exec_func_call(n);
+            int base_count = n->data.cls.base_count;
+            Type **bases = NULL;
+            if (base_count > 0)
+            {
+                bases = malloc(sizeof(Type *) * base_count);
+                for (int i = 0; i < base_count; ++i)
+                {
+                    Value bv = get_variable(interpreter_current_env(), n->data.cls.base_names[i], n->line, n->column);
+                    if (bv.type != VAL_TYPE)
+                    {
+                        log_script_error(n->line, n->column, "Unknown base type '%s'", n->data.cls.base_names[i]);
+                        exit(1);
+                    }
+                    bases[i] = bv.cls;
+                }
+            }
+
+            Type *t = type_create(n->data.cls.class_name);
+            type_set_bases(t, bases, base_count);
+
+            for (int m = 0; m < n->child_count; ++m)
+            {
+                ASTNode *method = n->children[m];
+                Function *fn = malloc(sizeof(Function));
+                fn->name = strdup(method->data.method.method_name);
+                fn->param_count = method->data.method.param_count;
+                fn->params = malloc(sizeof(char *) * fn->param_count);
+                for (int p = 0; p < fn->param_count; ++p)
+                    fn->params[p] = strdup(method->data.method.params[p]);
+                fn->body = method->children;
+                fn->body_count = method->child_count;
+                fn->env = interpreter_current_env();
+                env_retain(interpreter_current_env());
+                fn->bind_on_access = !method->is_static;
+                Value fv = {.type = VAL_FUNCTION, .func = fn};
+                object_set(t->attributes, method->data.method.method_name, fv);
+            }
+
+            Value tv = {.type = VAL_TYPE, .cls = t};
+            set_variable(interpreter_current_env(), n->data.cls.class_name, tv);
+            break;
         }
-        else if (n->type == NODE_IF)
+        case NODE_FUNC_CALL:
+            exec_func_call(n);
+            break;
+        case NODE_IF:
         {
             Value cond = eval_node(n->children[0]);
             if (to_boolean(cond))
@@ -519,8 +628,9 @@ Value run_ast(ASTNode **nodes, int count)
                     last = run_ast(else_node->children, else_node->child_count);
                 }
             }
+            break;
         }
-        else if (n->type == NODE_RETURN)
+        case NODE_RETURN:
         {
             last = eval_node(n->children[0]);
             CallFrame *f = current_frame(&call_stack);
@@ -528,9 +638,11 @@ Value run_ast(ASTNode **nodes, int count)
                 f->returning = true;
             return last;
         }
-        else if (n->type == NODE_BLOCK)
-        {
+        case NODE_BLOCK:
             last = run_ast(n->children, n->child_count);
+            break;
+        default:
+            break;
         }
 
         CallFrame *cf = current_frame(&call_stack);

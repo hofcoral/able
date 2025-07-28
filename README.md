@@ -31,6 +31,21 @@ set numbers to [1, 2]
 numbers.append(3)
 pr(numbers.get(2))
 ```
+```able
+# Class usage
+class Person():
+    set init to (this, name):
+        this.name to name
+    set greet to (this):
+        pr("Hello ", this.name)
+set p to Person("Able")
+p.greet()
+```
+
+```
+./build/able_exe examples/oop/class.abl
+```
+
 
 ```
 ./build/able_exe examples/variables/basic_assignment.abl

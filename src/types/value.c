@@ -7,6 +7,7 @@
 #include "types/object.h"
 #include "types/function.h"
 #include "types/list.h"
+#include "types/instance.h"
 
 static const char *TYPE_NAMES[VAL_TYPE_COUNT] = {
     "UNDEFINED",
@@ -16,7 +17,10 @@ static const char *TYPE_NAMES[VAL_TYPE_COUNT] = {
     "STRING",
     "OBJECT",
     "FUNCTION",
-    "LIST"
+    "LIST",
+    "TYPE",
+    "INSTANCE",
+    "BOUND_METHOD"
 };
 
 const char *value_type_name(ValueType type)
@@ -41,6 +45,14 @@ void free_value(Value v)
         break;
     case VAL_FUNCTION:
         /* functions are freed as part of AST cleanup */
+        break;
+    case VAL_TYPE:
+        break;
+    case VAL_INSTANCE:
+        instance_release(v.instance);
+        break;
+    case VAL_BOUND_METHOD:
+        free(v.bound);
         break;
     case VAL_BOOL:
         break;
@@ -71,6 +83,23 @@ Value clone_value(const Value *src)
         break;
     case VAL_LIST:
         copy.list = clone_list(src->list);
+        break;
+    case VAL_TYPE:
+        copy.cls = src->cls;
+        break;
+    case VAL_INSTANCE:
+        copy.instance = src->instance;
+        instance_retain(copy.instance);
+        break;
+    case VAL_BOUND_METHOD:
+        if (src->bound) {
+            BoundMethod *bm = malloc(sizeof(BoundMethod));
+            bm->self = src->bound->self;
+            bm->func = src->bound->func;
+            copy.bound = bm;
+        } else {
+            copy.bound = NULL;
+        }
         break;
     case VAL_BOOL:
         copy.boolean = src->boolean;
@@ -143,6 +172,17 @@ void print_value(Value v, int indent)
         {
             printf("<function: NULL>");
         }
+        break;
+    case VAL_TYPE:
+        printf("<type %s>", v.cls ? v.cls->name : "unknown");
+        break;
+    case VAL_INSTANCE:
+        printf("<instance of %s at %p>",
+               v.instance && v.instance->cls ? v.instance->cls->name : "?",
+               (void *)v.instance);
+        break;
+    case VAL_BOUND_METHOD:
+        printf("<bound method>");
         break;
     case VAL_LIST:
         printf("[");

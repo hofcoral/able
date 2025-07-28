@@ -24,6 +24,7 @@ typedef enum
     TOKEN_IF,
     TOKEN_ELIF,
     TOKEN_ELSE,
+    TOKEN_CLASS,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
     TOKEN_LBRACKET,
@@ -48,6 +49,7 @@ typedef enum
     TOKEN_NEWLINE,
     TOKEN_INDENT,
     TOKEN_DEDENT,
+    TOKEN_AT_STATIC,
     TOKEN_UNKNOWN
 } TokenType;
 
