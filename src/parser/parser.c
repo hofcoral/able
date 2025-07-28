@@ -70,12 +70,12 @@ static ASTNode *parse_identifier_chain()
     if (!match(TOKEN_DOT))
     {
         ASTNode *var = new_node(NODE_VAR, id_line, id_col);
-        var->set_name = first;
+        var->data.set.set_name = first;
         return var;
     }
 
     ASTNode *base = new_node(NODE_ATTR_ACCESS, id_line, id_col);
-    base->object_name = first;
+    base->data.attr.object_name = first;
     base->child_count = 0;
     base->children = NULL;
 
@@ -88,7 +88,7 @@ static ASTNode *parse_identifier_chain()
         }
 
         ASTNode *attr = new_node(NODE_ATTR_ACCESS, current.line, current.column);
-        attr->attr_name = strdup(current.value);
+        attr->data.attr.attr_name = strdup(current.value);
         attr->child_count = 0;
         attr->children = NULL;
         advance_token();
@@ -105,37 +105,37 @@ static ASTNode *parse_literal_node()
 
     if (current.type == TOKEN_STRING)
     {
-        n->literal_value.type = VAL_STRING;
-        n->literal_value.str = strdup(current.value);
+        n->data.lit.literal_value.type = VAL_STRING;
+        n->data.lit.literal_value.str = strdup(current.value);
         advance_token();
     }
     else if (current.type == TOKEN_NUMBER)
     {
-        n->literal_value.type = VAL_NUMBER;
-        n->literal_value.num = atof(current.value);
+        n->data.lit.literal_value.type = VAL_NUMBER;
+        n->data.lit.literal_value.num = atof(current.value);
         advance_token();
     }
     else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
     {
-        n->literal_value.type = VAL_BOOL;
-        n->literal_value.boolean = (current.type == TOKEN_TRUE);
+        n->data.lit.literal_value.type = VAL_BOOL;
+        n->data.lit.literal_value.boolean = (current.type == TOKEN_TRUE);
         advance_token();
     }
     else if (current.type == TOKEN_NULL)
     {
-        n->literal_value.type = VAL_NULL;
+        n->data.lit.literal_value.type = VAL_NULL;
         advance_token();
     }
     else if (current.type == TOKEN_LBRACE)
     {
         ASTNode *obj = parse_object_literal();
-        n->literal_value = obj->literal_value;
+        n->data.lit.literal_value = obj->data.lit.literal_value;
         free(obj);
     }
     else if (current.type == TOKEN_LBRACKET)
     {
         ASTNode *lst = parse_list_literal();
-        n->literal_value = lst->literal_value;
+        n->data.lit.literal_value = lst->data.lit.literal_value;
         free(lst);
     }
     else
@@ -232,12 +232,12 @@ static ASTNode *parse_set_stmt()
     ASTNode *dest = parse_identifier_chain();
     if (dest->type == NODE_VAR)
     {
-        n->set_name = dest->set_name;
+        n->data.set.set_name = dest->data.set.set_name;
         free(dest);
     }
     else
     {
-        n->set_attr = dest;
+        n->data.set.set_attr = dest;
     }
 
     if (current.type != TOKEN_TO)
@@ -267,10 +267,10 @@ static ASTNode *parse_set_stmt()
         if (is_func)
         {
             Function *fn = parse_function_def();
-            fn->name = strdup(n->set_name);
+            fn->name = strdup(n->data.set.set_name);
             ASTNode *lit = new_node(NODE_LITERAL, line, col);
-            lit->literal_value.type = VAL_FUNCTION;
-            lit->literal_value.func = fn;
+            lit->data.lit.literal_value.type = VAL_FUNCTION;
+            lit->data.lit.literal_value.func = fn;
             add_child(n, lit);
             return n;
         }
@@ -285,12 +285,12 @@ static ASTNode *parse_set_stmt()
 static ASTNode *finish_func_call(ASTNode *callee)
 {
     ASTNode *n = new_node(NODE_FUNC_CALL, callee->line, callee->column);
-    n->func_callee = callee;
+    n->data.call.func_callee = callee;
 
     if (callee->type == NODE_VAR)
-        n->func_name = strdup(callee->set_name);
+        n->data.call.func_name = strdup(callee->data.set.set_name);
     else
-        n->func_name = NULL;
+        n->data.call.func_name = NULL;
 
     expect(TOKEN_LPAREN, "'('");
 
@@ -328,10 +328,10 @@ static ASTNode *parse_unary()
     {
         ASTNode *right = parse_unary();
         ASTNode *zero = new_node(NODE_LITERAL, prev_line, prev_col);
-        zero->literal_value.type = VAL_NUMBER;
-        zero->literal_value.num = 0;
+        zero->data.lit.literal_value.type = VAL_NUMBER;
+        zero->data.lit.literal_value.num = 0;
         ASTNode *n = new_node(NODE_BINARY, prev_line, prev_col);
-        n->binary_op = OP_SUB;
+        n->data.binary.op = OP_SUB;
         add_child(n, zero);
         add_child(n, right);
         return n;
@@ -354,7 +354,7 @@ static ASTNode *parse_factor()
         advance_token();
         ASTNode *right = parse_unary();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
-        bin->binary_op = op;
+        bin->data.binary.op = op;
         add_child(bin, node);
         add_child(bin, right);
         node = bin;
@@ -371,7 +371,7 @@ static ASTNode *parse_arithmetic()
         advance_token();
         ASTNode *right = parse_factor();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
-        bin->binary_op = op;
+        bin->data.binary.op = op;
         add_child(bin, node);
         add_child(bin, right);
         node = bin;
@@ -410,7 +410,7 @@ static ASTNode *parse_expression()
         advance_token();
         ASTNode *right = parse_arithmetic();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
-        bin->binary_op = op;
+        bin->data.binary.op = op;
         add_child(bin, node);
         add_child(bin, right);
         node = bin;
@@ -509,7 +509,7 @@ ASTNode *parse_object_literal()
         else if (current.type == TOKEN_LBRACE)
         {
             ASTNode *inner_obj_node = parse_object_literal();
-            val = inner_obj_node->literal_value;
+            val = inner_obj_node->data.lit.literal_value;
             free(inner_obj_node);
         }
         else
@@ -539,8 +539,8 @@ ASTNode *parse_object_literal()
     obj->pairs = pairs;
 
     ASTNode *obj_node = new_node(NODE_LITERAL, line, col);
-    obj_node->literal_value.type = VAL_OBJECT;
-    obj_node->literal_value.obj = obj;
+    obj_node->data.lit.literal_value.type = VAL_OBJECT;
+    obj_node->data.lit.literal_value.obj = obj;
 
     return obj_node;
 }
@@ -591,13 +591,13 @@ ASTNode *parse_list_literal()
         else if (current.type == TOKEN_LBRACE)
         {
             ASTNode *obj = parse_object_literal();
-            items[count] = obj->literal_value;
+            items[count] = obj->data.lit.literal_value;
             free(obj);
         }
         else if (current.type == TOKEN_LBRACKET)
         {
             ASTNode *lst = parse_list_literal();
-            items[count] = lst->literal_value;
+            items[count] = lst->data.lit.literal_value;
             free(lst);
         }
         else
@@ -623,8 +623,8 @@ ASTNode *parse_list_literal()
     list->items = items;
 
     ASTNode *node = new_node(NODE_LITERAL, line, col);
-    node->literal_value.type = VAL_LIST;
-    node->literal_value.list = list;
+    node->data.lit.literal_value.type = VAL_LIST;
+    node->data.lit.literal_value.list = list;
     return node;
 }
 
@@ -636,7 +636,7 @@ static ASTNode *parse_return_stmt()
     if (current.type == TOKEN_NEWLINE || current.type == TOKEN_DEDENT || current.type == TOKEN_EOF)
     {
         ASTNode *undef = new_node(NODE_LITERAL, line, col);
-        undef->literal_value.type = VAL_UNDEFINED;
+        undef->data.lit.literal_value.type = VAL_UNDEFINED;
         add_child(n, undef);
     }
     else
