@@ -83,6 +83,11 @@ typedef struct ASTNode
 
 /* Helpers */
 ASTNode *new_node(NodeType type, int line, int column);
+ASTNode *new_var_node(char *name, int line, int column);
+ASTNode *new_attr_access_node(char *object_name, char *attr_name,
+                              int line, int column);
+ASTNode *new_set_node(char *name, struct ASTNode *attr, int line, int column);
+ASTNode *new_func_call_node(struct ASTNode *callee);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

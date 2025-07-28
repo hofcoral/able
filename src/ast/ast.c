@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "ast/ast.h"
 
@@ -8,6 +9,41 @@ ASTNode *new_node(NodeType type, int line, int column)
     n->type = type;
     n->line = line;
     n->column = column;
+    return n;
+}
+
+ASTNode *new_var_node(char *name, int line, int column)
+{
+    ASTNode *n = new_node(NODE_VAR, line, column);
+    n->data.set.set_name = name;
+    return n;
+}
+
+ASTNode *new_attr_access_node(char *object_name, char *attr_name,
+                              int line, int column)
+{
+    ASTNode *n = new_node(NODE_ATTR_ACCESS, line, column);
+    n->data.attr.object_name = object_name;
+    n->data.attr.attr_name = attr_name;
+    return n;
+}
+
+ASTNode *new_set_node(char *name, ASTNode *attr, int line, int column)
+{
+    ASTNode *n = new_node(NODE_SET, line, column);
+    n->data.set.set_name = name;
+    n->data.set.set_attr = attr;
+    return n;
+}
+
+ASTNode *new_func_call_node(ASTNode *callee)
+{
+    ASTNode *n = new_node(NODE_FUNC_CALL, callee->line, callee->column);
+    n->data.call.func_callee = callee;
+    if (callee->type == NODE_VAR)
+        n->data.call.func_name = strdup(callee->data.set.set_name);
+    else
+        n->data.call.func_name = NULL;
     return n;
 }
 

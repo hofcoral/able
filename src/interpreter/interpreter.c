@@ -476,8 +476,9 @@ Value run_ast(ASTNode **nodes, int count)
     for (int i = 0; i < count; ++i)
     {
         ASTNode *n = nodes[i];
-
-        if (n->type == NODE_SET)
+        switch (n->type)
+        {
+        case NODE_SET:
         {
             Value result = eval_node(n->children[0]);
 
@@ -494,12 +495,12 @@ Value run_ast(ASTNode **nodes, int count)
                 }
                 set_variable(interpreter_current_env(), n->data.set.set_name, result);
             }
+            break;
         }
-        else if (n->type == NODE_FUNC_CALL)
-        {
+        case NODE_FUNC_CALL:
             exec_func_call(n);
-        }
-        else if (n->type == NODE_IF)
+            break;
+        case NODE_IF:
         {
             Value cond = eval_node(n->children[0]);
             if (to_boolean(cond))
@@ -519,8 +520,9 @@ Value run_ast(ASTNode **nodes, int count)
                     last = run_ast(else_node->children, else_node->child_count);
                 }
             }
+            break;
         }
-        else if (n->type == NODE_RETURN)
+        case NODE_RETURN:
         {
             last = eval_node(n->children[0]);
             CallFrame *f = current_frame(&call_stack);
@@ -528,9 +530,11 @@ Value run_ast(ASTNode **nodes, int count)
                 f->returning = true;
             return last;
         }
-        else if (n->type == NODE_BLOCK)
-        {
+        case NODE_BLOCK:
             last = run_ast(n->children, n->child_count);
+            break;
+        default:
+            break;
         }
 
         CallFrame *cf = current_frame(&call_stack);
