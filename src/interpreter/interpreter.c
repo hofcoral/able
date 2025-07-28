@@ -18,6 +18,84 @@
 #include "types/type_registry.h"
 
 static CallStack call_stack;
+static bool break_flag = false;
+static bool continue_flag = false;
+
+static Value call_value(Value callee, Value *args, int arg_count, int line, int column)
+{
+    if (callee.type == VAL_BOUND_METHOD)
+    {
+        Function *fn = callee.bound->func;
+        if (fn->param_count - 1 != arg_count)
+        {
+            log_script_error(line, column,
+                             "Function expects %d arguments, but got %d",
+                             fn->param_count - 1, arg_count);
+            exit(1);
+        }
+        Env *env = env_create(fn->env);
+        Value self_val = {.type = VAL_INSTANCE, .instance = callee.bound->self};
+        set_variable(env, fn->params[0], self_val);
+        for (int p = 0; p < arg_count; ++p)
+            set_variable(env, fn->params[p + 1], args[p]);
+        CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
+        push_frame(&call_stack, frame);
+        Value result = run_ast(fn->body, fn->body_count);
+        pop_frame(&call_stack);
+        Value ret_val = clone_value(&result);
+        env_release(env);
+        return ret_val;
+    }
+    if (callee.type == VAL_TYPE)
+    {
+        Instance *inst = instance_create(callee.cls);
+        Value inst_val = {.type = VAL_INSTANCE, .instance = inst};
+        Value init = value_get_attr(inst_val, "init");
+        if (init.type == VAL_BOUND_METHOD)
+        {
+            Function *fn = init.bound->func;
+            if (fn->param_count - 1 != arg_count)
+            {
+                log_script_error(line, column, "init expects %d arguments, got %d",
+                                 fn->param_count - 1, arg_count);
+                exit(1);
+            }
+            Env *env = env_create(fn->env);
+            Value selfv = {.type = VAL_INSTANCE, .instance = init.bound->self};
+            set_variable(env, fn->params[0], selfv);
+            for (int p = 0; p < arg_count; ++p)
+                set_variable(env, fn->params[p + 1], args[p]);
+            CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
+            push_frame(&call_stack, frame);
+            run_ast(fn->body, fn->body_count);
+            pop_frame(&call_stack);
+            env_release(env);
+        }
+        return inst_val;
+    }
+    if (callee.type != VAL_FUNCTION)
+    {
+        log_script_error(line, column, "Attempting to call non-function");
+        exit(1);
+    }
+    Function *fn = callee.func;
+    if (fn->param_count != arg_count)
+    {
+        log_script_error(line, column, "Function expects %d arguments, but got %d",
+                         fn->param_count, arg_count);
+        exit(1);
+    }
+    Env *env = env_create(fn->env);
+    for (int p = 0; p < arg_count; ++p)
+        set_variable(env, fn->params[p], args[p]);
+    CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
+    push_frame(&call_stack, frame);
+    Value result = run_ast(fn->body, fn->body_count);
+    pop_frame(&call_stack);
+    Value ret_val = clone_value(&result);
+    env_release(env);
+    return ret_val;
+}
 
 static Value exec_func_call(ASTNode *n);
 static Value resolve_attr_prefix(ASTNode *attr_node, int count);
@@ -641,12 +719,108 @@ Value run_ast(ASTNode **nodes, int count)
         case NODE_BLOCK:
             last = run_ast(n->children, n->child_count);
             break;
+        case NODE_FOR:
+        {
+            Value iterable = eval_node(n->children[0]);
+            ASTNode *body = n->children[1];
+            if (iterable.type == VAL_LIST)
+            {
+                for (int i = 0; i < iterable.list->count; ++i)
+                {
+                    set_variable(interpreter_current_env(), n->data.loop.loop_var,
+                                 iterable.list->items[i]);
+                    last = run_ast(body->children, body->child_count);
+                    CallFrame *cf = current_frame(&call_stack);
+                    if (cf && cf->returning)
+                        break;
+                    if (break_flag)
+                    {
+                        break_flag = false;
+                        break;
+                    }
+                    if (continue_flag)
+                    {
+                        continue_flag = false;
+                        continue;
+                    }
+                }
+            }
+            else
+            {
+                Value iter_func = value_get_attr(iterable, "__iter__");
+                if (iter_func.type == VAL_UNDEFINED || iter_func.type == VAL_NULL)
+                {
+                    log_script_error(n->line, n->column, "Object is not iterable");
+                    exit(1);
+                }
+                Value iterator = call_value(iter_func, NULL, 0, n->line, n->column);
+                while (1)
+                {
+                    Value next_f = value_get_attr(iterator, "__next__");
+                    if (next_f.type == VAL_UNDEFINED || next_f.type == VAL_NULL)
+                    {
+                        log_script_error(n->line, n->column,
+                                         "Iterator missing __next__ method");
+                        exit(1);
+                    }
+                    Value item = call_value(next_f, NULL, 0, n->line, n->column);
+                    if (item.type == VAL_UNDEFINED)
+                        break;
+                    set_variable(interpreter_current_env(), n->data.loop.loop_var,
+                                 item);
+                    last = run_ast(body->children, body->child_count);
+                    CallFrame *cf = current_frame(&call_stack);
+                    if (cf && cf->returning)
+                        break;
+                    if (break_flag)
+                    {
+                        break_flag = false;
+                        break;
+                    }
+                    if (continue_flag)
+                    {
+                        continue_flag = false;
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+        case NODE_WHILE:
+        {
+            while (to_boolean(eval_node(n->children[0])))
+            {
+                last = run_ast(n->children[1]->children, n->children[1]->child_count);
+                CallFrame *cf = current_frame(&call_stack);
+                if (cf && cf->returning)
+                    break;
+                if (break_flag)
+                {
+                    break_flag = false;
+                    break;
+                }
+                if (continue_flag)
+                {
+                    continue_flag = false;
+                    continue;
+                }
+            }
+            break;
+        }
+        case NODE_BREAK:
+            break_flag = true;
+            return last;
+        case NODE_CONTINUE:
+            continue_flag = true;
+            return last;
         default:
             break;
         }
 
         CallFrame *cf = current_frame(&call_stack);
         if (cf && cf->returning)
+            return last;
+        if (break_flag || continue_flag)
             return last;
     }
 

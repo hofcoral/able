@@ -100,6 +100,11 @@ static void free_node(ASTNode *n)
         free(n->data.method.params);
     }
 
+    if (n->type == NODE_FOR)
+    {
+        free(n->data.loop.loop_var);
+    }
+
     // Free any children (used for all types with nested structure)
     for (int i = 0; i < n->child_count; ++i)
     {

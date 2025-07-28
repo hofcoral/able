@@ -24,6 +24,10 @@ static ASTNode *parse_expression();
 static ASTNode *parse_arithmetic();
 static ASTNode *parse_block();
 static ASTNode *parse_if_stmt();
+static ASTNode *parse_for_stmt();
+static ASTNode *parse_while_stmt();
+static ASTNode *parse_break_stmt();
+static ASTNode *parse_continue_stmt();
 static ASTNode *parse_list_literal();
 static ASTNode *parse_method_def(char *name, bool is_static, int line, int col);
 static ASTNode *parse_class_def();
@@ -853,6 +857,51 @@ static ASTNode *parse_if_stmt()
     return node;
 }
 
+static ASTNode *parse_for_stmt()
+{
+    int line = prev_line;
+    int col = prev_col;
+    if (current.type != TOKEN_IDENTIFIER)
+    {
+        log_script_error(current.line, current.column, "Expected loop variable");
+        exit(1);
+    }
+    char *var = strdup(current.value);
+    advance_token();
+    expect(TOKEN_OF, "of");
+    ASTNode *iter = parse_expression();
+    expect(TOKEN_COLON, ":");
+    ASTNode *body = parse_block();
+    ASTNode *node = new_node(NODE_FOR, line, col);
+    node->data.loop.loop_var = var;
+    add_child(node, iter);
+    add_child(node, body);
+    return node;
+}
+
+static ASTNode *parse_while_stmt()
+{
+    int line = prev_line;
+    int col = prev_col;
+    ASTNode *node = new_node(NODE_WHILE, line, col);
+    ASTNode *cond = parse_expression();
+    expect(TOKEN_COLON, ":");
+    ASTNode *body = parse_block();
+    add_child(node, cond);
+    add_child(node, body);
+    return node;
+}
+
+static ASTNode *parse_break_stmt()
+{
+    return new_node(NODE_BREAK, prev_line, prev_col);
+}
+
+static ASTNode *parse_continue_stmt()
+{
+    return new_node(NODE_CONTINUE, prev_line, prev_col);
+}
+
 static ASTNode *parse_statement()
 {
     while (current.type == TOKEN_NEWLINE)
@@ -861,6 +910,14 @@ static ASTNode *parse_statement()
         return parse_set_stmt();
     if (match(TOKEN_RETURN))
         return parse_return_stmt();
+    if (match(TOKEN_FOR))
+        return parse_for_stmt();
+    if (match(TOKEN_WHILE))
+        return parse_while_stmt();
+    if (match(TOKEN_BREAK))
+        return parse_break_stmt();
+    if (match(TOKEN_CONTINUE))
+        return parse_continue_stmt();
     if (match(TOKEN_IF))
         return parse_if_stmt();
     if (match(TOKEN_CLASS))

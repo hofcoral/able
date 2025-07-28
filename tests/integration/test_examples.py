@@ -30,6 +30,9 @@ EXAMPLES = {
     'examples/types/object_type.abl': 'OBJECT\n',
     'examples/types/function_type.abl': 'FUNCTION\n',
     'examples/variables/list_ops.abl': '1\n2\n3\n',
+    'examples/control/for_loop.abl': '1\n2\n3\n',
+    'examples/control/while_loop.abl': '0\n1\n2\n',
+    'examples/control/break_continue.abl': '1\n2\n',
 }
 
 class ExampleTests(AbleTestCase):
