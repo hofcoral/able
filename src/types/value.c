@@ -49,7 +49,7 @@ void free_value(Value v)
     case VAL_TYPE:
         break;
     case VAL_INSTANCE:
-        instance_free(v.instance);
+        instance_release(v.instance);
         break;
     case VAL_BOUND_METHOD:
         free(v.bound);
@@ -89,6 +89,7 @@ Value clone_value(const Value *src)
         break;
     case VAL_INSTANCE:
         copy.instance = src->instance;
+        instance_retain(copy.instance);
         break;
     case VAL_BOUND_METHOD:
         if (src->bound) {

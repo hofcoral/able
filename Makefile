@@ -20,6 +20,7 @@ SRCS = \
     $(SRC_DIR)/interpreter/interpreter.c \
     $(SRC_DIR)/interpreter/stack.c \
     $(SRC_DIR)/interpreter/resolve.c \
+    $(SRC_DIR)/interpreter/attr.c \
     $(SRC_DIR)/utils/utils.c
 
 OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)

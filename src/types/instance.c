@@ -4,6 +4,7 @@
 
 Instance *instance_create(Type *cls) {
     Instance *inst = malloc(sizeof(Instance));
+    inst->ref_count = 1;
     inst->cls = cls;
     inst->attributes = malloc(sizeof(Object));
     inst->attributes->count = 0;
@@ -18,3 +19,15 @@ void instance_free(Instance *inst) {
     free_object(inst->attributes);
     free(inst);
 }
+
+void instance_retain(Instance *inst) {
+    if (inst) inst->ref_count++;
+}
+
+void instance_release(Instance *inst) {
+    if (!inst) return;
+    if (--inst->ref_count == 0) {
+        instance_free(inst);
+    }
+}
+
