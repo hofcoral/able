@@ -723,7 +723,31 @@ Value run_ast(ASTNode **nodes, int count)
         {
             Value iterable = eval_node(n->children[0]);
             ASTNode *body = n->children[1];
-            if (iterable.type == VAL_LIST)
+            if (iterable.type == VAL_NUMBER)
+            {
+                int limit = (int)iterable.num;
+                for (int i = 0; i < limit; ++i)
+                {
+                    Value idx = {.type = VAL_NUMBER, .num = i};
+                    set_variable(interpreter_current_env(), n->data.loop.loop_var,
+                                 idx);
+                    last = run_ast(body->children, body->child_count);
+                    CallFrame *cf = current_frame(&call_stack);
+                    if (cf && cf->returning)
+                        break;
+                    if (break_flag)
+                    {
+                        break_flag = false;
+                        break;
+                    }
+                    if (continue_flag)
+                    {
+                        continue_flag = false;
+                        continue;
+                    }
+                }
+            }
+            else if (iterable.type == VAL_LIST)
             {
                 for (int i = 0; i < iterable.list->count; ++i)
                 {
