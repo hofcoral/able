@@ -19,14 +19,14 @@ void type_registry_init()
 {
     type_count = 0;
     // Register built-in types
-    register_type(type_create("undefined", 0));
-    register_type(type_create("null", 0));
-    register_type(type_create("bool", sizeof(bool)));
-    register_type(type_create("number", sizeof(double)));
-    register_type(type_create("string", sizeof(char*)));
-    register_type(type_create("object", sizeof(void*))); // placeholder
-    register_type(type_create("function", sizeof(void*))); // placeholder
-    register_type(type_create("list", sizeof(void*)));
+    register_type(type_create("undefined"));
+    register_type(type_create("null"));
+    register_type(type_create("bool"));
+    register_type(type_create("number"));
+    register_type(type_create("string"));
+    register_type(type_create("object"));
+    register_type(type_create("function"));
+    register_type(type_create("list"));
 }
 
 void type_registry_cleanup()

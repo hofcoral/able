@@ -9,6 +9,7 @@ ASTNode *new_node(NodeType type, int line, int column)
     n->type = type;
     n->line = line;
     n->column = column;
+    n->is_static = false;
     return n;
 }
 
@@ -81,6 +82,22 @@ static void free_node(ASTNode *n)
     {
         free(n->data.attr.object_name);
         free(n->data.attr.attr_name);
+    }
+
+    if (n->type == NODE_CLASS_DEF)
+    {
+        free(n->data.cls.class_name);
+        for (int i = 0; i < n->data.cls.base_count; ++i)
+            free(n->data.cls.base_names[i]);
+        free(n->data.cls.base_names);
+    }
+
+    if (n->type == NODE_METHOD_DEF)
+    {
+        free(n->data.method.method_name);
+        for (int i = 0; i < n->data.method.param_count; ++i)
+            free(n->data.method.params[i]);
+        free(n->data.method.params);
     }
 
     // Free any children (used for all types with nested structure)

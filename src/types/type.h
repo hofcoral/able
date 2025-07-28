@@ -1,18 +1,17 @@
 #ifndef TYPE_H
 #define TYPE_H
 
-#include <stddef.h>
-
-struct MethodTable; // forward declaration
+#include "types/object.h"
 
 typedef struct Type {
-    const char *name;
-    size_t size;
-    struct MethodTable *methods;
-    struct Type *parent;
+    char *name;
+    struct Type **bases;
+    int base_count;
+    Object *attributes;
 } Type;
 
-Type *type_create(const char *name, size_t size);
+Type *type_create(const char *name);
+void type_set_bases(Type *t, Type **bases, int base_count);
 void type_free(Type *type);
 
 #endif

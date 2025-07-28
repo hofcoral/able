@@ -44,6 +44,7 @@ typedef struct ASTNode
     int line, column;
     struct ASTNode **children;
     int child_count;
+    bool is_static;
 
     // Node-specific data
     union
@@ -70,6 +71,20 @@ typedef struct ASTNode
         {
             BinaryOp op;
         } binary;
+
+        struct
+        {
+            char *class_name;
+            char **base_names;
+            int base_count;
+        } cls;
+
+        struct
+        {
+            char *method_name;
+            char **params;
+            int param_count;
+        } method;
 
         struct
         {
