@@ -16,7 +16,9 @@ typedef enum
     NODE_RETURN,
     NODE_BINARY,
     NODE_IF,
-    NODE_BLOCK
+    NODE_BLOCK,
+    NODE_CLASS_DEF,
+    NODE_METHOD_DEF
 } NodeType;
 
 typedef enum
@@ -39,29 +41,43 @@ typedef struct ASTNode
     NodeType type;
 
     // Common
+    int line, column;
     struct ASTNode **children;
     int child_count;
 
-    // SET
-    char *set_name;
-    struct ASTNode *set_attr; // destination attribute chain if assigning to attr
+    // Node-specific data
+    union
+    {
+        struct
+        {
+            char *set_name;
+            struct ASTNode *set_attr;
+        } set;
 
-    // Attribute access
-    char *object_name;
-    char *attr_name;
+        struct
+        {
+            char *object_name;
+            char *attr_name;
+        } attr;
 
-    // Function call
-    char *func_name;
-    struct ASTNode *func_callee; // allow attribute based calls
+        struct
+        {
+            char *func_name;
+            struct ASTNode *func_callee;
+        } call;
 
-    // Binary expression
-    BinaryOp binary_op;
+        struct
+        {
+            BinaryOp op;
+        } binary;
 
-    // Literal value (used for NODE_LITERAL)
-    Value literal_value;
+        struct
+        {
+            Value literal_value;
+        } lit;
 
-    int line;
-    int column;
+        /* (add new kinds here—LIST_LITERAL, CLASS_DEF, FOR_LOOP, etc.) */
+    } data;
 
 } ASTNode;
 
