@@ -20,7 +20,6 @@ static Lexer *L;
 static ASTNode *parse_statement();
 static ASTNode *parse_return_stmt();
 static ASTNode *finish_func_call(ASTNode *callee);
-static ASTNode *parse_func_call();
 static ASTNode *parse_expression();
 static ASTNode *parse_arithmetic();
 static ASTNode *parse_block();
@@ -294,6 +293,58 @@ static ASTNode *parse_set_stmt()
     return n;
 }
 
+static ASTNode *parse_to_assignment(ASTNode *dest)
+{
+    int line = dest->line;
+    int col = dest->column;
+
+    char *set_name = NULL;
+    ASTNode *set_attr = NULL;
+    if (dest->type == NODE_VAR)
+    {
+        set_name = dest->data.set.set_name;
+        free(dest);
+    }
+    else
+    {
+        set_attr = dest;
+    }
+
+    ASTNode *n = new_set_node(set_name, set_attr, line, col);
+
+    if (current.type == TOKEN_LPAREN)
+    {
+        size_t save_pos = L->pos;
+        int is_func = 0;
+        int depth = 1;
+        while (save_pos < L->length && depth > 0)
+        {
+            char c = L->source[save_pos++];
+            if (c == '(')
+                depth++;
+            else if (c == ')')
+                depth--;
+        }
+        if (depth == 0 && save_pos < L->length && L->source[save_pos] == ':')
+            is_func = 1;
+
+        if (is_func)
+        {
+            Function *fn = parse_function_def();
+            fn->name = set_name ? strdup(set_name) : NULL;
+            ASTNode *lit = new_node(NODE_LITERAL, line, col);
+            lit->data.lit.literal_value.type = VAL_FUNCTION;
+            lit->data.lit.literal_value.func = fn;
+            add_child(n, lit);
+            return n;
+        }
+    }
+
+    ASTNode *expr = parse_expression();
+    add_child(n, expr);
+
+    return n;
+}
 static ASTNode *parse_class_def()
 {
     int line = prev_line;
@@ -421,12 +472,6 @@ static ASTNode *finish_func_call(ASTNode *callee)
 
     expect(TOKEN_RPAREN, "')'");
     return n;
-}
-
-static ASTNode *parse_func_call()
-{
-    ASTNode *callee = parse_identifier_chain();
-    return finish_func_call(callee);
 }
 
 static ASTNode *parse_primary();
@@ -821,7 +866,17 @@ static ASTNode *parse_statement()
     if (match(TOKEN_CLASS))
         return parse_class_def();
     if (current.type == TOKEN_IDENTIFIER)
-        return parse_func_call();
+    {
+        ASTNode *id = parse_identifier_chain();
+        if (match(TOKEN_TO))
+            return parse_to_assignment(id);
+        if (current.type == TOKEN_LPAREN)
+            return finish_func_call(id);
+
+        log_script_error(current.line, current.column,
+                         "Parse error: unexpected token '%s'", current.value);
+        exit(1);
+    }
 
     log_script_error(current.line, current.column, "Parse error: unexpected token '%s'", current.value);
     exit(1);
