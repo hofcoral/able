@@ -2,6 +2,7 @@
 #define FUNCTION_H
 
 #include "../ast/ast.h"
+#include <stdbool.h>
 
 struct Env;
 
@@ -13,6 +14,7 @@ typedef struct Function
     ASTNode **body;
     int body_count;
     struct Env *env;
+    bool bind_on_access;
 } Function;
 
 void free_function(Function *fn);

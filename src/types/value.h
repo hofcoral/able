@@ -6,6 +6,13 @@
 struct Object; // Forward declaration (to avoid circular include)
 struct Function; // Forward declaration for functions
 struct List;    // Forward declaration for lists
+struct Type;
+struct Instance;
+
+typedef struct BoundMethod {
+    struct Instance *self;
+    struct Function *func;
+} BoundMethod;
 
 // ————— ENUM FOR VALUE TYPES ————— //
 typedef enum
@@ -18,6 +25,9 @@ typedef enum
     VAL_OBJECT,
     VAL_FUNCTION,
     VAL_LIST,
+    VAL_TYPE,
+    VAL_INSTANCE,
+    VAL_BOUND_METHOD,
     VAL_TYPE_COUNT
 } ValueType;
 
@@ -33,6 +43,9 @@ typedef struct Value
         struct Object *obj;
         struct Function *func;
         struct List *list;
+        struct Type *cls;
+        struct Instance *instance;
+        BoundMethod *bound;
     };
 } Value;
 

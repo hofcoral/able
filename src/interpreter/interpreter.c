@@ -8,6 +8,8 @@
 #include "types/env.h"
 #include "types/function.h"
 #include "types/list.h"
+#include "types/type.h"
+#include "types/instance.h"
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/stack.h"
@@ -50,6 +52,70 @@ static bool to_boolean(Value v)
     default:
         return true;
     }
+}
+
+static Value type_lookup(Type *t, const char *name)
+{
+    Value val = object_get(t->attributes, name);
+    if (val.type != VAL_NULL)
+        return val;
+    for (int i = 0; i < t->base_count; ++i)
+    {
+        val = type_lookup(t->bases[i], name);
+        if (val.type != VAL_NULL && val.type != VAL_UNDEFINED)
+            return val;
+    }
+    Value undef = {.type = VAL_UNDEFINED};
+    return undef;
+}
+
+static Value getattr(Value receiver, const char *name)
+{
+    if (receiver.type == VAL_INSTANCE)
+    {
+        Value attr = object_get(receiver.instance->attributes, name);
+        if (attr.type != VAL_NULL)
+        {
+            if (attr.type == VAL_FUNCTION && attr.func->bind_on_access)
+            {
+                BoundMethod *bm = malloc(sizeof(BoundMethod));
+                bm->self = receiver.instance;
+                bm->func = attr.func;
+                Value v = {.type = VAL_BOUND_METHOD, .bound = bm};
+                return v;
+            }
+            return attr;
+        }
+
+        attr = type_lookup(receiver.instance->cls, name);
+        if (attr.type != VAL_UNDEFINED && attr.type != VAL_NULL)
+        {
+            if (attr.type == VAL_FUNCTION && attr.func->bind_on_access)
+            {
+                BoundMethod *bm = malloc(sizeof(BoundMethod));
+                bm->self = receiver.instance;
+                bm->func = attr.func;
+                Value v = {.type = VAL_BOUND_METHOD, .bound = bm};
+                return v;
+            }
+            return attr;
+        }
+        Value undef = {.type = VAL_UNDEFINED};
+        return undef;
+    }
+    else if (receiver.type == VAL_TYPE)
+    {
+        Value attr = object_get(receiver.cls->attributes, name);
+        if (attr.type == VAL_NULL)
+        {
+            Value undef = {.type = VAL_UNDEFINED};
+            return undef;
+        }
+        return attr;
+    }
+
+    Value undef = {.type = VAL_UNDEFINED};
+    return undef;
 }
 
 static bool strict_equal(Value a, Value b)
@@ -436,6 +502,65 @@ static Value exec_func_call(ASTNode *n)
     }
 
     Value callee_val = eval_node(n->data.call.func_callee);
+    if (callee_val.type == VAL_BOUND_METHOD)
+    {
+        Function *fn = callee_val.bound->func;
+        if (fn->param_count - 1 != n->child_count)
+        {
+            log_script_error(n->line, n->column,
+                             "Function '%s' expects %d arguments, but got %d",
+                             n->data.call.func_name,
+                             fn->param_count - 1, n->child_count);
+            exit(1);
+        }
+
+        Env *call_env = env_create(fn->env);
+        Value self_val = {.type = VAL_INSTANCE, .instance = callee_val.bound->self};
+        set_variable(call_env, fn->params[0], self_val);
+        for (int p = 0; p < n->child_count; ++p)
+        {
+            Value arg_val = eval_node(n->children[p]);
+            set_variable(call_env, fn->params[p + 1], arg_val);
+        }
+        CallFrame frame = {.env = call_env, .return_ptr = NULL, .returning = false};
+        push_frame(&call_stack, frame);
+        Value result = run_ast(fn->body, fn->body_count);
+        pop_frame(&call_stack);
+        Value ret_val = clone_value(&result);
+        env_release(call_env);
+        return ret_val;
+    }
+    if (callee_val.type == VAL_TYPE)
+    {
+        Instance *inst = instance_create(callee_val.cls);
+        Value inst_val = {.type = VAL_INSTANCE, .instance = inst};
+        Value init = getattr(inst_val, "init");
+        if (init.type == VAL_BOUND_METHOD)
+        {
+            Function *fn = init.bound->func;
+            if (fn->param_count - 1 != n->child_count)
+            {
+                log_script_error(n->line, n->column,
+                                 "init expects %d arguments, got %d",
+                                 fn->param_count - 1, n->child_count);
+                exit(1);
+            }
+            Env *env = env_create(fn->env);
+            Value selfv = {.type = VAL_INSTANCE, .instance = init.bound->self};
+            set_variable(env, fn->params[0], selfv);
+            for (int p = 0; p < n->child_count; ++p)
+            {
+                Value arg_val = eval_node(n->children[p]);
+                set_variable(env, fn->params[p + 1], arg_val);
+            }
+            CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
+            push_frame(&call_stack, frame);
+            run_ast(fn->body, fn->body_count);
+            pop_frame(&call_stack);
+            env_release(env);
+        }
+        return inst_val;
+    }
     if (callee_val.type != VAL_FUNCTION)
     {
         log_script_error(n->line, n->column, "Attempting to call non-function");
@@ -495,6 +620,49 @@ Value run_ast(ASTNode **nodes, int count)
                 }
                 set_variable(interpreter_current_env(), n->data.set.set_name, result);
             }
+            break;
+        }
+        case NODE_CLASS_DEF:
+        {
+            int base_count = n->data.cls.base_count;
+            Type **bases = NULL;
+            if (base_count > 0)
+            {
+                bases = malloc(sizeof(Type *) * base_count);
+                for (int i = 0; i < base_count; ++i)
+                {
+                    Value bv = get_variable(interpreter_current_env(), n->data.cls.base_names[i], n->line, n->column);
+                    if (bv.type != VAL_TYPE)
+                    {
+                        log_script_error(n->line, n->column, "Unknown base type '%s'", n->data.cls.base_names[i]);
+                        exit(1);
+                    }
+                    bases[i] = bv.cls;
+                }
+            }
+
+            Type *t = type_create(n->data.cls.class_name);
+            type_set_bases(t, bases, base_count);
+
+            for (int m = 0; m < n->child_count; ++m)
+            {
+                ASTNode *method = n->children[m];
+                Function *fn = malloc(sizeof(Function));
+                fn->name = strdup(method->data.method.method_name);
+                fn->param_count = method->data.method.param_count;
+                fn->params = malloc(sizeof(char *) * fn->param_count);
+                for (int p = 0; p < fn->param_count; ++p)
+                    fn->params[p] = strdup(method->data.method.params[p]);
+                fn->body = method->children;
+                fn->body_count = method->child_count;
+                fn->env = NULL;
+                fn->bind_on_access = !method->is_static;
+                Value fv = {.type = VAL_FUNCTION, .func = fn};
+                object_set(t->attributes, method->data.method.method_name, fv);
+            }
+
+            Value tv = {.type = VAL_TYPE, .cls = t};
+            set_variable(interpreter_current_env(), n->data.cls.class_name, tv);
             break;
         }
         case NODE_FUNC_CALL:

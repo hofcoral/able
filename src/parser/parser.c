@@ -26,6 +26,8 @@ static ASTNode *parse_arithmetic();
 static ASTNode *parse_block();
 static ASTNode *parse_if_stmt();
 static ASTNode *parse_list_literal();
+static ASTNode *parse_method_def(char *name, bool is_static, int line, int col);
+static ASTNode *parse_class_def();
 ASTNode *parse_argument();
 
 static void advance_token() {
@@ -140,7 +142,8 @@ static ASTNode *parse_literal_node()
     return n;
 }
 
-static Function *parse_function_def()
+static void parse_function_parts(char ***out_params, int *out_param_count,
+                                 ASTNode ***out_body, int *out_body_count)
 {
     expect(TOKEN_LPAREN, "'('");
 
@@ -205,13 +208,28 @@ static Function *parse_function_def()
         body[body_count++] = parse_statement();
     }
 
+    *out_params = params;
+    *out_param_count = count;
+    *out_body = body;
+    *out_body_count = body_count;
+}
+
+static Function *parse_function_def()
+{
+    char **params;
+    int param_count;
+    ASTNode **body;
+    int body_count;
+    parse_function_parts(&params, &param_count, &body, &body_count);
+
     Function *fn = malloc(sizeof(Function));
     fn->name = NULL;
-    fn->param_count = count;
+    fn->param_count = param_count;
     fn->params = params;
     fn->body = body;
     fn->body_count = body_count;
     fn->env = NULL;
+    fn->bind_on_access = false;
     return fn;
 }
 
@@ -274,6 +292,110 @@ static ASTNode *parse_set_stmt()
     add_child(n, expr);
 
     return n;
+}
+
+static ASTNode *parse_class_def()
+{
+    int line = prev_line;
+    int col = prev_col;
+    if (current.type != TOKEN_IDENTIFIER)
+    {
+        log_script_error(current.line, current.column, "Expected class name");
+        exit(1);
+    }
+    char *name = strdup(current.value);
+    advance_token();
+
+    expect(TOKEN_LPAREN, "'('");
+
+    int cap = 4, count = 0;
+    char **bases = malloc(sizeof(char *) * cap);
+    if (current.type != TOKEN_RPAREN)
+    {
+        while (1)
+        {
+            if (current.type != TOKEN_IDENTIFIER)
+            {
+                log_script_error(current.line, current.column, "Expected base name");
+                exit(1);
+            }
+            if (count == cap)
+            {
+                cap *= 2;
+                bases = realloc(bases, sizeof(char *) * cap);
+            }
+            bases[count++] = strdup(current.value);
+            advance_token();
+            if (!match(TOKEN_COMMA))
+                break;
+        }
+    }
+    expect(TOKEN_RPAREN, ")");
+    expect(TOKEN_COLON, ":");
+
+    ASTNode *cls = new_node(NODE_CLASS_DEF, line, col);
+    cls->data.cls.class_name = name;
+    cls->data.cls.base_names = bases;
+    cls->data.cls.base_count = count;
+
+    if (!match(TOKEN_NEWLINE))
+    {
+        log_script_error(current.line, current.column, "Expected newline after class header");
+        exit(1);
+    }
+    expect(TOKEN_INDENT, "indent");
+    bool static_flag = false;
+    while (current.type != TOKEN_DEDENT && current.type != TOKEN_EOF)
+    {
+        if (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT)
+        {
+            advance_token();
+            continue;
+        }
+        if (match(TOKEN_AT_STATIC))
+        {
+            static_flag = true;
+            continue;
+        }
+        if (match(TOKEN_SET))
+        {
+            if (current.type != TOKEN_IDENTIFIER)
+            {
+                log_script_error(current.line, current.column, "Expected method name");
+                exit(1);
+            }
+            char *mname = strdup(current.value);
+            advance_token();
+            expect(TOKEN_TO, "to");
+            ASTNode *m = parse_method_def(mname, static_flag, prev_line, prev_col);
+            add_child(cls, m);
+            static_flag = false;
+            continue;
+        }
+
+        log_script_error(current.line, current.column, "Unexpected token in class body");
+        exit(1);
+    }
+    expect(TOKEN_DEDENT, "dedent");
+    return cls;
+}
+
+static ASTNode *parse_method_def(char *name, bool is_static, int line, int col)
+{
+    char **params;
+    int param_count;
+    ASTNode **body;
+    int body_count;
+    parse_function_parts(&params, &param_count, &body, &body_count);
+
+    ASTNode *m = new_node(NODE_METHOD_DEF, line, col);
+    m->data.method.method_name = name;
+    m->data.method.params = params;
+    m->data.method.param_count = param_count;
+    m->children = body;
+    m->child_count = body_count;
+    m->is_static = is_static;
+    return m;
 }
 
 static ASTNode *finish_func_call(ASTNode *callee)
@@ -696,6 +818,8 @@ static ASTNode *parse_statement()
         return parse_return_stmt();
     if (match(TOKEN_IF))
         return parse_if_stmt();
+    if (match(TOKEN_CLASS))
+        return parse_class_def();
     if (current.type == TOKEN_IDENTIFIER)
         return parse_func_call();
 

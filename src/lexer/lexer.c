@@ -192,6 +192,8 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_ELIF, start, len, lexer->line, column);
         if (len == 4 && strncmp(start, "else", len) == 0)
             return make_token(TOKEN_ELSE, start, len, lexer->line, column);
+        if (len == 5 && strncmp(start, "class", len) == 0)
+            return make_token(TOKEN_CLASS, start, len, lexer->line, column);
         if (len == 2 && strncmp(start, "pr", len) == 0)
             return make_token(TOKEN_IDENTIFIER, start, len, lexer->line, column);
         if (len == 3 && strncmp(start, "GET", len) == 0)
@@ -217,6 +219,17 @@ Token next_token(Lexer *lexer)
         while (isdigit(peek(lexer)))
             advance(lexer);
         return make_token(TOKEN_NUMBER, start, &lexer->source[lexer->pos] - start, lexer->line, column);
+    }
+
+    if (c == '@')
+    {
+        const char *start = &lexer->source[lexer->pos];
+        while (isalnum(peek(lexer)))
+            advance(lexer);
+        size_t len = &lexer->source[lexer->pos] - start;
+        if (len == 6 && strncmp(start, "static", len) == 0)
+            return make_token(TOKEN_AT_STATIC, &lexer->source[start_pos], len + 1, lexer->line, column);
+        return make_token(TOKEN_UNKNOWN, "@", 1, lexer->line, column);
     }
 
     // Strings
