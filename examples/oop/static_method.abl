@@ -1,0 +1,6 @@
+class Math():
+    @static
+    set add to (a, b):
+        pr(a + b)
+
+Math.add(2, 3)
