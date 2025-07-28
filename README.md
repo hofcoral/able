@@ -30,6 +30,10 @@ pr(name)
 set numbers to [1, 2]
 numbers.append(3)
 pr(numbers.get(2))
+
+# Integer loops
+for i of 3:
+    pr(i)
 ```
 ```able
 # Class usage
