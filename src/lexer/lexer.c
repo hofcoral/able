@@ -83,42 +83,63 @@ Token next_token(Lexer *lexer)
 
     if (lexer->at_line_start)
     {
-        int indent = 0;
-        while (peek(lexer) == ' ')
+        while (1)
         {
-            advance(lexer);
-            indent++;
-        }
-
-        if (peek(lexer) == '\n')
-        {
-            advance(lexer);
-            lexer->line++;
-            lexer->line_start = lexer->pos;
-            return make_token(TOKEN_NEWLINE, "\n", 1, lexer->line - 1, 1);
-        }
-
-        if (indent > lexer->indent_stack[lexer->indent_top])
-        {
-            lexer->indent_top++;
-            lexer->indent_stack[lexer->indent_top] = indent;
-            lexer->at_line_start = 0;
-            return make_token(TOKEN_INDENT, "", 0, lexer->line, 1);
-        }
-
-        if (indent < lexer->indent_stack[lexer->indent_top])
-        {
-            while (indent < lexer->indent_stack[lexer->indent_top])
+            int indent = 0;
+            while (peek(lexer) == ' ' || peek(lexer) == '\t')
             {
-                lexer->indent_top--;
-                lexer->pending_dedents++;
+                advance(lexer);
+                indent++;
             }
-            lexer->at_line_start = 0;
-            lexer->pending_dedents--; /* return one dedent now */
-            return make_token(TOKEN_DEDENT, "", 0, lexer->line, 1);
-        }
 
-        lexer->at_line_start = 0;
+            char c = peek(lexer);
+
+            if (c == '\n')
+            {
+                advance(lexer);
+                lexer->line++;
+                lexer->line_start = lexer->pos;
+                continue; /* skip blank line */
+            }
+
+            if (c == '#' && lexer->source[lexer->pos + 1] != '#')
+            {
+                while (peek(lexer) != '\n' && peek(lexer) != '\0')
+                    advance(lexer);
+                continue; /* skip comment line */
+            }
+
+            if (c == '#' && lexer->pos + 1 < lexer->length &&
+                lexer->source[lexer->pos + 1] == '#')
+            {
+                lexer->pos += 2; /* skip initial ## */
+                skip_multiline_comment(lexer);
+                continue; /* multiline comment may span lines */
+            }
+
+            if (indent > lexer->indent_stack[lexer->indent_top])
+            {
+                lexer->indent_top++;
+                lexer->indent_stack[lexer->indent_top] = indent;
+                lexer->at_line_start = 0;
+                return make_token(TOKEN_INDENT, "", 0, lexer->line, 1);
+            }
+
+            if (indent < lexer->indent_stack[lexer->indent_top])
+            {
+                while (indent < lexer->indent_stack[lexer->indent_top])
+                {
+                    lexer->indent_top--;
+                    lexer->pending_dedents++;
+                }
+                lexer->at_line_start = 0;
+                lexer->pending_dedents--; /* return one dedent now */
+                return make_token(TOKEN_DEDENT, "", 0, lexer->line, 1);
+            }
+
+            lexer->at_line_start = 0;
+            break;
+        }
     }
 
     while (1)
