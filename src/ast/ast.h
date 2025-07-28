@@ -18,7 +18,11 @@ typedef enum
     NODE_IF,
     NODE_BLOCK,
     NODE_CLASS_DEF,
-    NODE_METHOD_DEF
+    NODE_METHOD_DEF,
+    NODE_FOR,
+    NODE_WHILE,
+    NODE_BREAK,
+    NODE_CONTINUE
 } NodeType;
 
 typedef enum
