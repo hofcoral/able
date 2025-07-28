@@ -1,0 +1,6 @@
+for v of [0, 1, 2, 3]:
+    if v == 0:
+        continue
+    if v == 3:
+        break
+    pr(v)

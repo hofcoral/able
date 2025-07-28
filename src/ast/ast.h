@@ -95,6 +95,11 @@ typedef struct ASTNode
             Value literal_value;
         } lit;
 
+        struct
+        {
+            char *loop_var;
+        } loop;
+
         /* (add new kinds here—LIST_LITERAL, CLASS_DEF, FOR_LOOP, etc.) */
     } data;
 

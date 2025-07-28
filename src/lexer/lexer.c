@@ -215,6 +215,16 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_ELSE, start, len, lexer->line, column);
         if (len == 5 && strncmp(start, "class", len) == 0)
             return make_token(TOKEN_CLASS, start, len, lexer->line, column);
+        if (len == 3 && strncmp(start, "for", len) == 0)
+            return make_token(TOKEN_FOR, start, len, lexer->line, column);
+        if (len == 2 && strncmp(start, "of", len) == 0)
+            return make_token(TOKEN_OF, start, len, lexer->line, column);
+        if (len == 5 && strncmp(start, "while", len) == 0)
+            return make_token(TOKEN_WHILE, start, len, lexer->line, column);
+        if (len == 5 && strncmp(start, "break", len) == 0)
+            return make_token(TOKEN_BREAK, start, len, lexer->line, column);
+        if (len == 8 && strncmp(start, "continue", len) == 0)
+            return make_token(TOKEN_CONTINUE, start, len, lexer->line, column);
         if (len == 2 && strncmp(start, "pr", len) == 0)
             return make_token(TOKEN_IDENTIFIER, start, len, lexer->line, column);
         if (len == 3 && strncmp(start, "GET", len) == 0)

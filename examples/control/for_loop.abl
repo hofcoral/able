@@ -1,0 +1,3 @@
+set vals to [1, 2, 3]
+for v of vals:
+    pr(v)
