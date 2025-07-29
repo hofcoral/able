@@ -1,0 +1,2 @@
+import "math"
+pr(math.add(2, 3))

@@ -28,6 +28,8 @@ static ASTNode *parse_for_stmt();
 static ASTNode *parse_while_stmt();
 static ASTNode *parse_break_stmt();
 static ASTNode *parse_continue_stmt();
+static ASTNode *parse_import_module_stmt();
+static ASTNode *parse_from_import_stmt();
 static ASTNode *parse_list_literal();
 static ASTNode *parse_method_def(char *name, bool is_static, int line, int col);
 static ASTNode *parse_class_def();
@@ -902,6 +904,54 @@ static ASTNode *parse_continue_stmt()
     return new_node(NODE_CONTINUE, prev_line, prev_col);
 }
 
+static ASTNode *parse_import_module_stmt()
+{
+    int line = prev_line;
+    int col = prev_col;
+    if (current.type != TOKEN_STRING)
+    {
+        log_script_error(current.line, current.column, "Expected module name");
+        exit(1);
+    }
+    char *name = strdup(current.value);
+    advance_token();
+    return new_import_module_node(name, line, col);
+}
+
+static ASTNode *parse_from_import_stmt()
+{
+    int line = prev_line;
+    int col = prev_col;
+    if (current.type != TOKEN_STRING)
+    {
+        log_script_error(current.line, current.column, "Expected module name");
+        exit(1);
+    }
+    char *module = strdup(current.value);
+    advance_token();
+    expect(TOKEN_IMPORT, "import");
+    int cap = 4, count = 0;
+    char **names = malloc(sizeof(char *) * cap);
+    while (1)
+    {
+        if (current.type != TOKEN_IDENTIFIER)
+        {
+            log_script_error(current.line, current.column, "Expected identifier");
+            exit(1);
+        }
+        if (count == cap)
+        {
+            cap *= 2;
+            names = realloc(names, sizeof(char *) * cap);
+        }
+        names[count++] = strdup(current.value);
+        advance_token();
+        if (!match(TOKEN_COMMA))
+            break;
+    }
+    return new_import_names_node(module, names, count, line, col);
+}
+
 static ASTNode *parse_statement()
 {
     while (current.type == TOKEN_NEWLINE)
@@ -918,6 +968,10 @@ static ASTNode *parse_statement()
         return parse_break_stmt();
     if (match(TOKEN_CONTINUE))
         return parse_continue_stmt();
+    if (match(TOKEN_IMPORT))
+        return parse_import_module_stmt();
+    if (match(TOKEN_FROM))
+        return parse_from_import_stmt();
     if (match(TOKEN_IF))
         return parse_if_stmt();
     if (match(TOKEN_CLASS))

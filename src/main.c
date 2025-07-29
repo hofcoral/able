@@ -6,38 +6,11 @@
 #include "types/env.h"
 #include "parser/parser.h"
 #include "interpreter/interpreter.h"
+#include "interpreter/module.h"
+#include "interpreter/builtins.h"
 #include "ast/ast.h"
 #include "utils/utils.h"
 
-char *read_file(const char *filename)
-{
-    FILE *file = fopen(filename, "r");
-
-    if (!file)
-    {
-        log_error("Error:Could not open file%s", filename);
-        exit(1);
-    }
-
-    // Get file length
-    fseek(file, 0, SEEK_END);
-    long length = ftell(file);
-    rewind(file);
-
-    // Allocate buffer for parsing text
-    char *buffer = (char *)malloc(length + 1);
-    if (!buffer)
-    {
-        log_error("Error: Memory allocation failed");
-        exit(1);
-    }
-
-    fread(buffer, 1, length, file);
-    buffer[length] = '\0'; // Null-terminate EOF
-
-    fclose(file);
-    return buffer;
-}
 
 int main(int argc, char *argv[])
 {
@@ -59,8 +32,11 @@ int main(int argc, char *argv[])
 
     Env *global_env = env_create(NULL);
     interpreter_init();
+    module_system_init(global_env, argv[0]);
+    builtins_register(global_env, filename);
     interpreter_set_env(global_env);
     run_ast(prog, stmt_count);
+    module_system_cleanup();
     interpreter_cleanup();
 
     // Run "Garbage Collection"
