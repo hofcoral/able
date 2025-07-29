@@ -48,6 +48,23 @@ ASTNode *new_func_call_node(ASTNode *callee)
     return n;
 }
 
+ASTNode *new_import_module_node(char *module_name, int line, int column)
+{
+    ASTNode *n = new_node(NODE_IMPORT_MODULE, line, column);
+    n->data.import_module.module_name = module_name;
+    return n;
+}
+
+ASTNode *new_import_names_node(char *module_name, char **names, int name_count,
+                               int line, int column)
+{
+    ASTNode *n = new_node(NODE_IMPORT_NAMES, line, column);
+    n->data.import_names.module_name = module_name;
+    n->data.import_names.names = names;
+    n->data.import_names.name_count = name_count;
+    return n;
+}
+
 void add_child(ASTNode *parent, ASTNode *child)
 {
     parent->children = realloc(parent->children, sizeof(ASTNode *) * (parent->child_count + 1));
@@ -103,6 +120,17 @@ static void free_node(ASTNode *n)
     if (n->type == NODE_FOR)
     {
         free(n->data.loop.loop_var);
+    }
+    if (n->type == NODE_IMPORT_MODULE)
+    {
+        free(n->data.import_module.module_name);
+    }
+    if (n->type == NODE_IMPORT_NAMES)
+    {
+        free(n->data.import_names.module_name);
+        for (int i = 0; i < n->data.import_names.name_count; ++i)
+            free(n->data.import_names.names[i]);
+        free(n->data.import_names.names);
     }
 
     // Free any children (used for all types with nested structure)

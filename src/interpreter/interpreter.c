@@ -14,6 +14,7 @@
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/stack.h"
+#include "interpreter/module.h"
 #include "utils/utils.h"
 #include "types/type_registry.h"
 
@@ -215,6 +216,11 @@ void interpreter_set_env(Env *env)
     push_frame(&call_stack, frame);
 }
 
+void interpreter_pop_env()
+{
+    pop_frame(&call_stack);
+}
+
 Env *interpreter_current_env()
 {
     CallFrame *frame = current_frame(&call_stack);
@@ -414,6 +420,156 @@ static Value exec_func_call(ASTNode *n)
         Value arg = eval_node(n->children[0]);
         Value res = {.type = VAL_BOOL, .boolean = to_boolean(arg)};
         return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "len") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "len() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        if (arg.type == VAL_STRING)
+        {
+            Value res = {.type = VAL_NUMBER, .num = (double)strlen(arg.str)};
+            return res;
+        }
+        if (arg.type == VAL_LIST)
+        {
+            Value res = {.type = VAL_NUMBER, .num = (double)arg.list->count};
+            return res;
+        }
+        if (arg.type == VAL_OBJECT)
+        {
+            Value res = {.type = VAL_NUMBER, .num = (double)arg.obj->count};
+            return res;
+        }
+        log_script_error(n->line, n->column, "len() unsupported type");
+        exit(1);
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "int") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "int() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        Value res = {.type = VAL_NUMBER, .num = (double)(long long)to_number(arg)};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "float") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "float() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        Value res = {.type = VAL_NUMBER, .num = to_number(arg)};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "str") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "str() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        char buf[64];
+        switch (arg.type)
+        {
+        case VAL_NUMBER:
+            snprintf(buf, sizeof(buf), "%g", arg.num);
+            return (Value){.type = VAL_STRING, .str = strdup(buf)};
+        case VAL_BOOL:
+            return (Value){.type = VAL_STRING, .str = strdup(arg.boolean ? "true" : "false")};
+        case VAL_STRING:
+            return clone_value(&arg);
+        default:
+            log_script_error(n->line, n->column, "str() unsupported type");
+            exit(1);
+        }
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "dict") == 0)
+    {
+        if (n->child_count > 1)
+        {
+            log_script_error(n->line, n->column, "dict() expects at most one argument");
+            exit(1);
+        }
+        Object *obj = malloc(sizeof(Object));
+        obj->count = 0;
+        obj->capacity = 0;
+        obj->pairs = NULL;
+        if (n->child_count == 1)
+        {
+            Value arg = eval_node(n->children[0]);
+            if (arg.type != VAL_OBJECT)
+            {
+                log_script_error(n->line, n->column, "dict() expects an object");
+                exit(1);
+            }
+            for (int i = 0; i < arg.obj->count; ++i)
+                object_set(obj, arg.obj->pairs[i].key, arg.obj->pairs[i].value);
+        }
+        return (Value){.type = VAL_OBJECT, .obj = obj};
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "range") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "range() expects one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        if (arg.type != VAL_NUMBER)
+        {
+            log_script_error(n->line, n->column, "range() expects a number");
+            exit(1);
+        }
+        int limit = (int)arg.num;
+        List *list = malloc(sizeof(List));
+        list->count = 0;
+        list->capacity = 0;
+        list->items = NULL;
+        for (int i = 0; i < limit; ++i)
+        {
+            Value numv = {.type = VAL_NUMBER, .num = i};
+            list_append(list, numv);
+        }
+        return (Value){.type = VAL_LIST, .list = list};
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "input") == 0)
+    {
+        if (n->child_count > 1)
+        {
+            log_script_error(n->line, n->column, "input() expects zero or one argument");
+            exit(1);
+        }
+        if (n->child_count == 1)
+        {
+            Value prompt = eval_node(n->children[0]);
+            if (prompt.type == VAL_STRING)
+                printf("%s", prompt.str);
+        }
+        char buf[256];
+        if (!fgets(buf, sizeof(buf), stdin))
+        {
+            buf[0] = '\0';
+        }
+        size_t len = strlen(buf);
+        if (len > 0 && buf[len - 1] == '\n')
+            buf[len - 1] = '\0';
+        return (Value){.type = VAL_STRING, .str = strdup(buf)};
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "list") == 0)
@@ -837,6 +993,28 @@ Value run_ast(ASTNode **nodes, int count)
         case NODE_CONTINUE:
             continue_flag = true;
             return last;
+        case NODE_IMPORT_MODULE:
+        {
+            Value mod = import_module_value(n->data.import_module.module_name,
+                                           n->line, n->column);
+            set_variable(interpreter_current_env(), n->data.import_module.module_name,
+                         mod);
+            break;
+        }
+        case NODE_IMPORT_NAMES:
+        {
+            Value mod = import_module_value(n->data.import_names.module_name,
+                                           n->line, n->column);
+            for (int i = 0; i < n->data.import_names.name_count; ++i)
+            {
+                Value attr = import_module_attr(n->data.import_names.module_name,
+                                               n->data.import_names.names[i],
+                                               n->line, n->column);
+                set_variable(interpreter_current_env(),
+                             n->data.import_names.names[i], attr);
+            }
+            break;
+        }
         default:
             break;
         }
