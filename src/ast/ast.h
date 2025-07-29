@@ -18,7 +18,11 @@ typedef enum
     NODE_IF,
     NODE_BLOCK,
     NODE_CLASS_DEF,
-    NODE_METHOD_DEF
+    NODE_METHOD_DEF,
+    NODE_FOR,
+    NODE_WHILE,
+    NODE_BREAK,
+    NODE_CONTINUE
 } NodeType;
 
 typedef enum
@@ -90,6 +94,11 @@ typedef struct ASTNode
         {
             Value literal_value;
         } lit;
+
+        struct
+        {
+            char *loop_var;
+        } loop;
 
         /* (add new kinds here—LIST_LITERAL, CLASS_DEF, FOR_LOOP, etc.) */
     } data;
