@@ -18,6 +18,8 @@ SRCS = \
     $(SRC_DIR)/types/function.c \
     $(SRC_DIR)/types/env.c \
     $(SRC_DIR)/interpreter/interpreter.c \
+    $(SRC_DIR)/interpreter/module.c \
+    $(SRC_DIR)/interpreter/builtins.c \
     $(SRC_DIR)/interpreter/stack.c \
     $(SRC_DIR)/interpreter/resolve.c \
     $(SRC_DIR)/interpreter/attr.c \

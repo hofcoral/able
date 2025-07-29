@@ -22,7 +22,9 @@ typedef enum
     NODE_FOR,
     NODE_WHILE,
     NODE_BREAK,
-    NODE_CONTINUE
+    NODE_CONTINUE,
+    NODE_IMPORT_MODULE,
+    NODE_IMPORT_NAMES
 } NodeType;
 
 typedef enum
@@ -100,6 +102,18 @@ typedef struct ASTNode
             char *loop_var;
         } loop;
 
+        struct
+        {
+            char *module_name;
+        } import_module;
+
+        struct
+        {
+            char *module_name;
+            char **names;
+            int name_count;
+        } import_names;
+
         /* (add new kinds here—LIST_LITERAL, CLASS_DEF, FOR_LOOP, etc.) */
     } data;
 
@@ -112,6 +126,9 @@ ASTNode *new_attr_access_node(char *object_name, char *attr_name,
                               int line, int column);
 ASTNode *new_set_node(char *name, struct ASTNode *attr, int line, int column);
 ASTNode *new_func_call_node(struct ASTNode *callee);
+ASTNode *new_import_module_node(char *module_name, int line, int column);
+ASTNode *new_import_names_node(char *module_name, char **names, int name_count,
+                               int line, int column);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

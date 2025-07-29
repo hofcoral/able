@@ -14,6 +14,7 @@
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
 #include "interpreter/stack.h"
+#include "interpreter/module.h"
 #include "utils/utils.h"
 #include "types/type_registry.h"
 
@@ -213,6 +214,11 @@ void interpreter_set_env(Env *env)
 {
     CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
     push_frame(&call_stack, frame);
+}
+
+void interpreter_pop_env()
+{
+    pop_frame(&call_stack);
 }
 
 Env *interpreter_current_env()
@@ -837,6 +843,28 @@ Value run_ast(ASTNode **nodes, int count)
         case NODE_CONTINUE:
             continue_flag = true;
             return last;
+        case NODE_IMPORT_MODULE:
+        {
+            Value mod = import_module_value(n->data.import_module.module_name,
+                                           n->line, n->column);
+            set_variable(interpreter_current_env(), n->data.import_module.module_name,
+                         mod);
+            break;
+        }
+        case NODE_IMPORT_NAMES:
+        {
+            Value mod = import_module_value(n->data.import_names.module_name,
+                                           n->line, n->column);
+            for (int i = 0; i < n->data.import_names.name_count; ++i)
+            {
+                Value attr = import_module_attr(n->data.import_names.module_name,
+                                               n->data.import_names.names[i],
+                                               n->line, n->column);
+                set_variable(interpreter_current_env(),
+                             n->data.import_names.names[i], attr);
+            }
+            break;
+        }
         default:
             break;
         }

@@ -9,6 +9,7 @@
 void interpreter_init();
 void interpreter_cleanup();
 void interpreter_set_env(Env *env);
+void interpreter_pop_env();
 Env *interpreter_current_env();
 Value run_ast(ASTNode **nodes, int count);
 

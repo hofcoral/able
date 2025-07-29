@@ -17,6 +17,8 @@ typedef enum
     TOKEN_TRUE,
     TOKEN_FALSE,
     TOKEN_NULL,
+    TOKEN_IMPORT,
+    TOKEN_FROM,
     TOKEN_ASSIGN,
     TOKEN_GET,
     TOKEN_POST,
