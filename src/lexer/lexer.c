@@ -225,6 +225,12 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_BREAK, start, len, lexer->line, column);
         if (len == 8 && strncmp(start, "continue", len) == 0)
             return make_token(TOKEN_CONTINUE, start, len, lexer->line, column);
+        if (len == 3 && strncmp(start, "and", len) == 0)
+            return make_token(TOKEN_AND, start, len, lexer->line, column);
+        if (len == 2 && strncmp(start, "or", len) == 0)
+            return make_token(TOKEN_OR, start, len, lexer->line, column);
+        if (len == 3 && strncmp(start, "not", len) == 0)
+            return make_token(TOKEN_NOT, start, len, lexer->line, column);
         if (len == 6 && strncmp(start, "import", len) == 0)
             return make_token(TOKEN_IMPORT, start, len, lexer->line, column);
         if (len == 4 && strncmp(start, "from", len) == 0)

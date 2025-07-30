@@ -25,7 +25,8 @@ typedef enum
     NODE_CONTINUE,
     NODE_IMPORT_MODULE,
     NODE_IMPORT_NAMES,
-    NODE_POSTFIX_INC
+    NODE_POSTFIX_INC,
+    NODE_UNARY
 } NodeType;
 
 typedef enum
@@ -40,8 +41,15 @@ typedef enum
     OP_LT,
     OP_GT,
     OP_LTE,
-    OP_GTE
+    OP_GTE,
+    OP_AND,
+    OP_OR
 } BinaryOp;
+
+typedef enum
+{
+    UNARY_NOT
+} UnaryOp;
 
 typedef struct ASTNode
 {
@@ -78,6 +86,11 @@ typedef struct ASTNode
         {
             BinaryOp op;
         } binary;
+
+        struct
+        {
+            UnaryOp op;
+        } unary;
 
         struct
         {
@@ -131,6 +144,7 @@ ASTNode *new_import_module_node(char *module_name, int line, int column);
 ASTNode *new_import_names_node(char *module_name, char **names, int name_count,
                                int line, int column);
 ASTNode *new_postfix_inc_node(struct ASTNode *target);
+ASTNode *new_unary_node(UnaryOp op, struct ASTNode *expr, int line, int column);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

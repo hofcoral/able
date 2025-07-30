@@ -41,6 +41,12 @@ x++
 pr(x)
 ```
 ```able
+# Logical operators
+pr(true and false)
+pr(true or false)
+pr(not false)
+```
+```able
 # Class usage
 class Person():
     set init to (this, name):

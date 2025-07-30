@@ -21,6 +21,7 @@ static ASTNode *parse_statement();
 static ASTNode *parse_return_stmt();
 static ASTNode *finish_func_call(ASTNode *callee);
 static ASTNode *parse_expression();
+static ASTNode *parse_comparison();
 static ASTNode *parse_arithmetic();
 static ASTNode *parse_block();
 static ASTNode *parse_if_stmt();
@@ -498,6 +499,11 @@ static ASTNode *parse_unary()
         add_child(n, right);
         return n;
     }
+    if (match(TOKEN_NOT))
+    {
+        ASTNode *expr = parse_unary();
+        return new_unary_node(UNARY_NOT, expr, prev_line, prev_col);
+    }
     return parse_postfix();
 }
 
@@ -541,7 +547,7 @@ static ASTNode *parse_arithmetic()
     return node;
 }
 
-static ASTNode *parse_expression()
+static ASTNode *parse_comparison()
 {
     ASTNode *node = parse_arithmetic();
     while (current.type == TOKEN_EQ || current.type == TOKEN_STRICT_EQ ||
@@ -571,6 +577,23 @@ static ASTNode *parse_expression()
         }
         advance_token();
         ASTNode *right = parse_arithmetic();
+        ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
+        bin->data.binary.op = op;
+        add_child(bin, node);
+        add_child(bin, right);
+        node = bin;
+    }
+    return node;
+}
+
+static ASTNode *parse_expression()
+{
+    ASTNode *node = parse_comparison();
+    while (current.type == TOKEN_AND || current.type == TOKEN_OR)
+    {
+        BinaryOp op = current.type == TOKEN_AND ? OP_AND : OP_OR;
+        advance_token();
+        ASTNode *right = parse_comparison();
         ASTNode *bin = new_node(NODE_BINARY, prev_line, prev_col);
         bin->data.binary.op = op;
         add_child(bin, node);

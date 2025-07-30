@@ -72,6 +72,14 @@ ASTNode *new_postfix_inc_node(ASTNode *target)
     return n;
 }
 
+ASTNode *new_unary_node(UnaryOp op, ASTNode *expr, int line, int column)
+{
+    ASTNode *n = new_node(NODE_UNARY, line, column);
+    n->data.unary.op = op;
+    add_child(n, expr);
+    return n;
+}
+
 void add_child(ASTNode *parent, ASTNode *child)
 {
     parent->children = realloc(parent->children, sizeof(ASTNode *) * (parent->child_count + 1));
