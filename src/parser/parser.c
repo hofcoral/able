@@ -482,6 +482,7 @@ static ASTNode *finish_func_call(ASTNode *callee)
 
 static ASTNode *parse_primary();
 static ASTNode *parse_expression();
+static ASTNode *parse_postfix();
 
 static ASTNode *parse_unary()
 {
@@ -497,7 +498,7 @@ static ASTNode *parse_unary()
         add_child(n, right);
         return n;
     }
-    return parse_primary();
+    return parse_postfix();
 }
 
 static ASTNode *parse_factor()
@@ -604,6 +605,21 @@ static ASTNode *parse_primary()
 
     log_script_error(current.line, current.column, "Invalid expression");
     exit(1);
+}
+
+static ASTNode *parse_postfix()
+{
+    ASTNode *node = parse_primary();
+    if (match(TOKEN_INC))
+    {
+        if (node->type != NODE_VAR && node->type != NODE_ATTR_ACCESS)
+        {
+            log_script_error(prev_line, prev_col, "Invalid increment target");
+            exit(1);
+        }
+        return new_postfix_inc_node(node);
+    }
+    return node;
 }
 
 ASTNode *parse_argument()
@@ -983,6 +999,8 @@ static ASTNode *parse_statement()
             return parse_to_assignment(id);
         if (current.type == TOKEN_LPAREN)
             return finish_func_call(id);
+        if (match(TOKEN_INC))
+            return new_postfix_inc_node(id);
 
         log_script_error(current.line, current.column,
                          "Parse error: unexpected token '%s'", current.value);

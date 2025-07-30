@@ -302,6 +302,11 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_GTE, ">=", 2, lexer->line, column);
         return make_token(TOKEN_GT, ">", 1, lexer->line, column);
     }
+    if (c == '+')
+    {
+        if (match(lexer, '+'))
+            return make_token(TOKEN_INC, "++", 2, lexer->line, column);
+    }
     if (c == '-' && match(lexer, '>'))
         return make_token(TOKEN_ARROW, "->", 2, lexer->line, column);
 

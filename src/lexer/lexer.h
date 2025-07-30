@@ -43,6 +43,7 @@ typedef enum
     TOKEN_DOT,
     TOKEN_ARROW,
     TOKEN_PLUS,
+    TOKEN_INC,
     TOKEN_MINUS,
     TOKEN_STAR,
     TOKEN_SLASH,
