@@ -66,6 +66,17 @@ p.greet()
 ./build/able_exe examples/variables/basic_assignment.abl
 ```
 
+## Standard Library
+
+Able ships with a small standard library. Some functions are available
+globally, such as `abs`, `min` and `max`. Additional modules can be imported
+using `import`:
+
+```able
+import "math"
+pr(math.sqrt(9))
+```
+
 ## Development
 
 - Source code lives in `src/`.

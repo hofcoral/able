@@ -1,2 +1,9 @@
 set add to (a, b):
     return a + b
+
+set sqrt to (x):
+    set guess to x / 2
+    set epsilon to 1 / 100000
+    while abs(guess * guess - x) > epsilon:
+        guess to (guess + x / guess) / 2
+    return guess
