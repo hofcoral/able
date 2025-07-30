@@ -1,0 +1,2 @@
+import "math"
+pr(math.sqrt(9))
