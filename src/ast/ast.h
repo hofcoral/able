@@ -15,6 +15,7 @@ typedef enum
     NODE_LITERAL,
     NODE_RETURN,
     NODE_BINARY,
+    NODE_TERNARY,
     NODE_IF,
     NODE_BLOCK,
     NODE_CLASS_DEF,
@@ -145,6 +146,8 @@ ASTNode *new_import_names_node(char *module_name, char **names, int name_count,
                                int line, int column);
 ASTNode *new_postfix_inc_node(struct ASTNode *target);
 ASTNode *new_unary_node(UnaryOp op, struct ASTNode *expr, int line, int column);
+ASTNode *new_ternary_node(struct ASTNode *cond, struct ASTNode *true_expr,
+                          struct ASTNode *false_expr, int line, int column);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

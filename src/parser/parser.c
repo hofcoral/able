@@ -21,6 +21,8 @@ static ASTNode *parse_statement();
 static ASTNode *parse_return_stmt();
 static ASTNode *finish_func_call(ASTNode *callee);
 static ASTNode *parse_expression();
+static ASTNode *parse_ternary();
+static ASTNode *parse_logical();
 static ASTNode *parse_comparison();
 static ASTNode *parse_arithmetic();
 static ASTNode *parse_block();
@@ -586,7 +588,7 @@ static ASTNode *parse_comparison()
     return node;
 }
 
-static ASTNode *parse_expression()
+static ASTNode *parse_logical()
 {
     ASTNode *node = parse_comparison();
     while (current.type == TOKEN_AND || current.type == TOKEN_OR)
@@ -601,6 +603,26 @@ static ASTNode *parse_expression()
         node = bin;
     }
     return node;
+}
+
+static ASTNode *parse_ternary()
+{
+    ASTNode *condition = parse_logical();
+    if (match(TOKEN_QUESTION))
+    {
+        ASTNode *true_expr = parse_ternary();
+        expect(TOKEN_COLON, "':'");
+        ASTNode *false_expr = parse_ternary();
+        ASTNode *tern = new_ternary_node(condition, true_expr, false_expr,
+                                         prev_line, prev_col);
+        return tern;
+    }
+    return condition;
+}
+
+static ASTNode *parse_expression()
+{
+    return parse_ternary();
 }
 
 static ASTNode *parse_primary()

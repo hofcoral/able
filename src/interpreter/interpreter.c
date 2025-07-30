@@ -433,6 +433,13 @@ static Value eval_node(ASTNode *n)
         log_script_error(n->line, n->column, "Type error in binary expression");
         exit(1);
     }
+    case NODE_TERNARY:
+    {
+        Value cond = eval_node(n->children[0]);
+        if (to_boolean(cond))
+            return eval_node(n->children[1]);
+        return eval_node(n->children[2]);
+    }
     case NODE_IF:
     {
         Value cond = eval_node(n->children[0]);
