@@ -1,0 +1,9 @@
+@private
+set secret to 42
+
+set greet to (name):
+    return "Hello, " + name
+
+@private
+set hidden to ():
+    pr("hidden")

@@ -77,6 +77,15 @@ from math import sqrt
 pr(sqrt(9))
 ```
 
+Custom modules can also be loaded from the working directory:
+
+```able
+from examples.custom_utils import greet
+pr(greet("Codex"))
+```
+
+Functions or variables marked with `@private` will not be exported when the module is imported.
+
 ## Development
 
 - Source code lives in `src/`.

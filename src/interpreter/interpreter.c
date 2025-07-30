@@ -873,7 +873,10 @@ Value run_ast(ASTNode **nodes, int count)
                     result.func->env = interpreter_current_env();
                     env_retain(interpreter_current_env());
                 }
-                set_variable(interpreter_current_env(), n->data.set.set_name, result);
+                if (n->is_private)
+                    set_private_variable(interpreter_current_env(), n->data.set.set_name, result);
+                else
+                    set_variable(interpreter_current_env(), n->data.set.set_name, result);
             }
             break;
         }

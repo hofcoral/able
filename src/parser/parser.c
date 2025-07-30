@@ -1040,8 +1040,25 @@ static ASTNode *parse_statement()
 {
     while (current.type == TOKEN_NEWLINE)
         advance_token();
+    bool private_flag = false;
+    if (match(TOKEN_AT_PRIVATE))
+    {
+        private_flag = true;
+        while (current.type == TOKEN_NEWLINE)
+            advance_token();
+    }
     if (match(TOKEN_SET))
-        return parse_set_stmt();
+    {
+        ASTNode *n = parse_set_stmt();
+        if (private_flag)
+            n->is_private = true;
+        return n;
+    }
+    if (private_flag)
+    {
+        log_script_error(current.line, current.column, "Expected 'set' after @private");
+        exit(1);
+    }
     if (match(TOKEN_RETURN))
         return parse_return_stmt();
     if (match(TOKEN_FOR))
