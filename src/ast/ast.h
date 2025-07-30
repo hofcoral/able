@@ -24,7 +24,8 @@ typedef enum
     NODE_BREAK,
     NODE_CONTINUE,
     NODE_IMPORT_MODULE,
-    NODE_IMPORT_NAMES
+    NODE_IMPORT_NAMES,
+    NODE_POSTFIX_INC
 } NodeType;
 
 typedef enum
@@ -129,6 +130,7 @@ ASTNode *new_func_call_node(struct ASTNode *callee);
 ASTNode *new_import_module_node(char *module_name, int line, int column);
 ASTNode *new_import_names_node(char *module_name, char **names, int name_count,
                                int line, int column);
+ASTNode *new_postfix_inc_node(struct ASTNode *target);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

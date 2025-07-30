@@ -1,0 +1,3 @@
+set i to 0
+pr(i++)
+pr(i)

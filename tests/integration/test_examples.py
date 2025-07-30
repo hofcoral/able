@@ -34,6 +34,7 @@ EXAMPLES = {
     'examples/control/for_number.abl': '0\n1\n2\n3\n4\n',
     'examples/control/while_loop.abl': '0\n1\n2\n',
     'examples/control/break_continue.abl': '1\n2\n',
+    'examples/variables/increment.abl': '0\n1\n',
 }
 
 class ExampleTests(AbleTestCase):

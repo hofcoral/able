@@ -65,6 +65,13 @@ ASTNode *new_import_names_node(char *module_name, char **names, int name_count,
     return n;
 }
 
+ASTNode *new_postfix_inc_node(ASTNode *target)
+{
+    ASTNode *n = new_node(NODE_POSTFIX_INC, target->line, target->column);
+    add_child(n, target);
+    return n;
+}
+
 void add_child(ASTNode *parent, ASTNode *child)
 {
     parent->children = realloc(parent->children, sizeof(ASTNode *) * (parent->child_count + 1));

@@ -241,6 +241,44 @@ static Value eval_node(ASTNode *n)
         return clone_value(&n->data.lit.literal_value);
     case NODE_FUNC_CALL:
         return exec_func_call(n);
+    case NODE_POSTFIX_INC:
+    {
+        ASTNode *target = n->children[0];
+        Value old;
+        if (target->type == NODE_VAR)
+        {
+            old = get_variable(interpreter_current_env(), target->data.set.set_name,
+                               target->line, target->column);
+            if (old.type != VAL_NUMBER)
+            {
+                log_script_error(target->line, target->column,
+                                  "Increment target must be a number");
+                exit(1);
+            }
+            Value new_val = {.type = VAL_NUMBER, .num = old.num + 1};
+            set_variable(interpreter_current_env(), target->data.set.set_name,
+                         new_val);
+        }
+        else if (target->type == NODE_ATTR_ACCESS)
+        {
+            old = resolve_attribute_chain(target);
+            if (old.type != VAL_NUMBER)
+            {
+                log_script_error(target->line, target->column,
+                                  "Increment target must be a number");
+                exit(1);
+            }
+            Value new_val = {.type = VAL_NUMBER, .num = old.num + 1};
+            assign_attribute_chain(target, new_val);
+        }
+        else
+        {
+            log_script_error(target->line, target->column,
+                              "Invalid increment target");
+            exit(1);
+        }
+        return old;
+    }
     case NODE_BINARY:
     {
         Value left = eval_node(n->children[0]);
@@ -841,6 +879,9 @@ Value run_ast(ASTNode **nodes, int count)
         }
         case NODE_FUNC_CALL:
             exec_func_call(n);
+            break;
+        case NODE_POSTFIX_INC:
+            eval_node(n);
             break;
         case NODE_IF:
         {

@@ -34,6 +34,11 @@ pr(numbers.get(2))
 # Integer loops
 for i of 3:
     pr(i)
+
+# Increment
+set x to 0
+x++
+pr(x)
 ```
 ```able
 # Class usage
