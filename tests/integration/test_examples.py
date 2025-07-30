@@ -36,6 +36,7 @@ EXAMPLES = {
     'examples/control/break_continue.abl': '1\n2\n',
     'examples/variables/increment.abl': '0\n1\n',
     'examples/variables/logical_ops.abl': 'false\ntrue\ntrue\n',
+    'examples/variables/ternary.abl': 'yes\nno\n',
 }
 
 class ExampleTests(AbleTestCase):

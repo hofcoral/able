@@ -1,0 +1,4 @@
+set flag to true
+pr(flag ? "yes" : "no")
+set flag to false
+pr(flag ? "yes" : "no")

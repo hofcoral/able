@@ -335,6 +335,7 @@ Token next_token(Lexer *lexer)
         {'*', TOKEN_STAR},
         {'%', TOKEN_PERCENT},
         {'/', TOKEN_SLASH},
+        {'?', TOKEN_QUESTION},
     };
 
     for (size_t i = 0; i < sizeof(single_char_tokens) / sizeof(single_char_tokens[0]); ++i)

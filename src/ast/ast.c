@@ -80,6 +80,16 @@ ASTNode *new_unary_node(UnaryOp op, ASTNode *expr, int line, int column)
     return n;
 }
 
+ASTNode *new_ternary_node(ASTNode *cond, ASTNode *true_expr, ASTNode *false_expr,
+                          int line, int column)
+{
+    ASTNode *n = new_node(NODE_TERNARY, line, column);
+    add_child(n, cond);
+    add_child(n, true_expr);
+    add_child(n, false_expr);
+    return n;
+}
+
 void add_child(ASTNode *parent, ASTNode *child)
 {
     parent->children = realloc(parent->children, sizeof(ASTNode *) * (parent->child_count + 1));
