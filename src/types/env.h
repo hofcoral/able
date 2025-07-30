@@ -1,6 +1,7 @@
 #ifndef ENV_H
 #define ENV_H
 
+#include <stdbool.h>
 #include "types/value.h"
 
 #include "uthash.h"
@@ -9,6 +10,7 @@ typedef struct Variable
 {
     char *name;           // key
     Value value;          // stored value
+    bool is_private;
     UT_hash_handle hh;    // uthash handle
 } Variable;
 
@@ -24,6 +26,7 @@ void env_retain(Env *env);
 void env_release(Env *env);
 
 void set_variable(Env *env, const char *name, Value val);
+void set_private_variable(Env *env, const char *name, Value val);
 Value get_variable(Env *env, const char *name, int line, int column);
 
 #endif

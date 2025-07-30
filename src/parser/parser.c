@@ -965,17 +965,46 @@ static ASTNode *parse_continue_stmt()
     return new_node(NODE_CONTINUE, prev_line, prev_col);
 }
 
-static ASTNode *parse_import_module_stmt()
+static char *parse_module_name()
 {
-    int line = prev_line;
-    int col = prev_col;
-    if (current.type != TOKEN_STRING)
+    if (current.type == TOKEN_STRING)
+    {
+        char *name = strdup(current.value);
+        advance_token();
+        return name;
+    }
+
+    if (current.type != TOKEN_IDENTIFIER)
     {
         log_script_error(current.line, current.column, "Expected module name");
         exit(1);
     }
+
     char *name = strdup(current.value);
     advance_token();
+    while (match(TOKEN_DOT))
+    {
+        if (current.type != TOKEN_IDENTIFIER)
+        {
+            log_script_error(current.line, current.column,
+                             "Expected identifier after '.'");
+            exit(1);
+        }
+        size_t len = strlen(name) + strlen(current.value) + 2;
+        char *tmp = malloc(len);
+        snprintf(tmp, len, "%s/%s", name, current.value);
+        free(name);
+        name = tmp;
+        advance_token();
+    }
+    return name;
+}
+
+static ASTNode *parse_import_module_stmt()
+{
+    int line = prev_line;
+    int col = prev_col;
+    char *name = parse_module_name();
     return new_import_module_node(name, line, col);
 }
 
@@ -983,13 +1012,7 @@ static ASTNode *parse_from_import_stmt()
 {
     int line = prev_line;
     int col = prev_col;
-    if (current.type != TOKEN_STRING)
-    {
-        log_script_error(current.line, current.column, "Expected module name");
-        exit(1);
-    }
-    char *module = strdup(current.value);
-    advance_token();
+    char *module = parse_module_name();
     expect(TOKEN_IMPORT, "import");
     int cap = 4, count = 0;
     char **names = malloc(sizeof(char *) * cap);
@@ -1017,8 +1040,25 @@ static ASTNode *parse_statement()
 {
     while (current.type == TOKEN_NEWLINE)
         advance_token();
+    bool private_flag = false;
+    if (match(TOKEN_AT_PRIVATE))
+    {
+        private_flag = true;
+        while (current.type == TOKEN_NEWLINE)
+            advance_token();
+    }
     if (match(TOKEN_SET))
-        return parse_set_stmt();
+    {
+        ASTNode *n = parse_set_stmt();
+        if (private_flag)
+            n->is_private = true;
+        return n;
+    }
+    if (private_flag)
+    {
+        log_script_error(current.line, current.column, "Expected 'set' after @private");
+        exit(1);
+    }
     if (match(TOKEN_RETURN))
         return parse_return_stmt();
     if (match(TOKEN_FOR))
