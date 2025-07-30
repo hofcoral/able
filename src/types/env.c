@@ -48,7 +48,8 @@ static Variable *find_var(Env *env, const char *name)
     return var;
 }
 
-void set_variable(Env *env, const char *name, Value val)
+static void set_variable_internal(Env *env, const char *name, Value val,
+                                  bool is_private)
 {
     // Search existing variable in chain
     for (Env *e = env; e != NULL; e = e->parent)
@@ -66,7 +67,18 @@ void set_variable(Env *env, const char *name, Value val)
     Variable *new_var = malloc(sizeof(Variable));
     new_var->name = strdup(name);
     new_var->value = clone_value(&val);
+    new_var->is_private = is_private;
     HASH_ADD_KEYPTR(hh, env->vars, new_var->name, strlen(new_var->name), new_var);
+}
+
+void set_variable(Env *env, const char *name, Value val)
+{
+    set_variable_internal(env, name, val, false);
+}
+
+void set_private_variable(Env *env, const char *name, Value val)
+{
+    set_variable_internal(env, name, val, true);
 }
 
 Value get_variable(Env *env, const char *name, int line, int column)

@@ -10,6 +10,7 @@ ASTNode *new_node(NodeType type, int line, int column)
     n->line = line;
     n->column = column;
     n->is_static = false;
+    n->is_private = false;
     return n;
 }
 

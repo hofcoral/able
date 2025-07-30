@@ -61,6 +61,7 @@ typedef struct ASTNode
     struct ASTNode **children;
     int child_count;
     bool is_static;
+    bool is_private;
 
     // Node-specific data
     union

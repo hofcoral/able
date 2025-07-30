@@ -82,7 +82,8 @@ static ModuleEntry *load_module(const char *name, int line, int column)
     obj->count = 0; obj->capacity = 0; obj->pairs = NULL;
     Variable *var, *tmp;
     HASH_ITER(hh, env->vars, var, tmp) {
-        object_set(obj, var->name, var->value);
+        if (!var->is_private)
+            object_set(obj, var->name, var->value);
     }
     Value val = { .type = VAL_OBJECT, .obj = obj };
 
