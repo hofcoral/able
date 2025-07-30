@@ -73,8 +73,8 @@ globally, such as `abs`, `min` and `max`. Additional modules can be imported
 using `import`:
 
 ```able
-import "math"
-pr(math.sqrt(9))
+from math import sqrt
+pr(sqrt(9))
 ```
 
 ## Development
