@@ -279,8 +279,45 @@ static Value eval_node(ASTNode *n)
         }
         return old;
     }
+    case NODE_UNARY:
+    {
+        Value val = eval_node(n->children[0]);
+        bool result;
+        switch (n->data.unary.op)
+        {
+        case UNARY_NOT:
+            result = !to_boolean(val);
+            break;
+        default:
+            log_script_error(n->line, n->column, "Unknown unary operator");
+            exit(1);
+        }
+        return (Value){.type = VAL_BOOL, .boolean = result};
+    }
     case NODE_BINARY:
     {
+        if (n->data.binary.op == OP_AND || n->data.binary.op == OP_OR)
+        {
+            Value left = eval_node(n->children[0]);
+            bool lb = to_boolean(left);
+            if (n->data.binary.op == OP_AND)
+            {
+                if (!lb)
+                    return (Value){.type = VAL_BOOL, .boolean = false};
+                Value right = eval_node(n->children[1]);
+                return (Value){.type = VAL_BOOL,
+                               .boolean = lb && to_boolean(right)};
+            }
+            else
+            {
+                if (lb)
+                    return (Value){.type = VAL_BOOL, .boolean = true};
+                Value right = eval_node(n->children[1]);
+                return (Value){.type = VAL_BOOL,
+                               .boolean = lb || to_boolean(right)};
+            }
+        }
+
         Value left = eval_node(n->children[0]);
         Value right = eval_node(n->children[1]);
         if (n->data.binary.op == OP_EQ || n->data.binary.op == OP_STRICT_EQ)
