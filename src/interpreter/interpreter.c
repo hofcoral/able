@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "types/object.h"
 #include "ast/ast.h"
@@ -665,6 +667,37 @@ static Value exec_func_call(ASTNode *n)
         if (len > 0 && buf[len - 1] == '\n')
             buf[len - 1] = '\0';
         return (Value){.type = VAL_STRING, .str = strdup(buf)};
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "time") == 0)
+    {
+        if (n->child_count != 0)
+        {
+            log_script_error(n->line, n->column, "time() expects no arguments");
+            exit(1);
+        }
+        double t = (double)time(NULL);
+        return (Value){.type = VAL_NUMBER, .num = t};
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "sleep") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "sleep() expects one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        if (arg.type != VAL_NUMBER)
+        {
+            log_script_error(n->line, n->column, "sleep() expects a number");
+            exit(1);
+        }
+        double sec = to_number(arg);
+        if (sec > 0)
+            usleep((useconds_t)(sec * 1000000));
+        Value undef = {.type = VAL_UNDEFINED};
+        return undef;
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "list") == 0)

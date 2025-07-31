@@ -1,0 +1,5 @@
+set time to ():
+    return time()
+
+set sleep to (seconds):
+    sleep(seconds)

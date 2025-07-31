@@ -1,0 +1,5 @@
+from time import time, sleep
+set start to time()
+sleep(1)
+set end to time()
+pr(end - start >= 1)
