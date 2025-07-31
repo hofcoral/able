@@ -27,7 +27,8 @@ typedef enum
     NODE_IMPORT_MODULE,
     NODE_IMPORT_NAMES,
     NODE_POSTFIX_INC,
-    NODE_UNARY
+    NODE_UNARY,
+    NODE_OBJECT_LITERAL
 } NodeType;
 
 typedef enum
@@ -129,6 +130,13 @@ typedef struct ASTNode
             char **names;
             int name_count;
         } import_names;
+
+        struct
+        {
+            char **keys;
+            struct ASTNode **values;
+            int pair_count;
+        } object;
 
         /* (add new kinds here—LIST_LITERAL, CLASS_DEF, FOR_LOOP, etc.) */
     } data;

@@ -7,6 +7,7 @@ EXAMPLES = {
     'examples/objects/attr_set.abl': '30\nWonderland\n',
     'examples/variables/simple_print.abl': 'Hello World!\n',
     'examples/objects/object_literal.abl': 'First name:Hof\n\n',
+    'examples/objects/object_literal_shorthand.abl': '22\n',
     'examples/functions/return_example.abl': 'test\n',
     'examples/functions/assign_from_return.abl': 'hello\n',
     'examples/variables/bool.abl': 'true\nfalse\n',
