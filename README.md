@@ -77,6 +77,15 @@ from math import sqrt
 pr(sqrt(9))
 ```
 
+The `time` module offers simple timing utilities:
+
+```able
+from time import time, sleep
+set start to time()
+sleep(1)
+pr(time() - start >= 1)
+```
+
 Custom modules can also be loaded from the working directory:
 
 ```able
