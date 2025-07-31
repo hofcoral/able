@@ -1,0 +1,6 @@
+set make_a_person to (name, age):
+    return { first_name: name.first, last_name: name.last, age }
+
+set tmp_name to { first: "Hof", last: "Coral" }
+set person to make_a_person(tmp_name, 22)
+pr(person.age)

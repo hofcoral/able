@@ -159,6 +159,17 @@ static void free_node(ASTNode *n)
         free(n->data.import_names.names);
     }
 
+    if (n->type == NODE_OBJECT_LITERAL)
+    {
+        for (int i = 0; i < n->data.object.pair_count; ++i)
+        {
+            free(n->data.object.keys[i]);
+            free_node(n->data.object.values[i]);
+        }
+        free(n->data.object.keys);
+        free(n->data.object.values);
+    }
+
     // Free any children (used for all types with nested structure)
     for (int i = 0; i < n->child_count; ++i)
     {

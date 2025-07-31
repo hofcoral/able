@@ -5,7 +5,6 @@
 #include "parser/parser.h"
 #include "types/value.h"
 #include "lexer/lexer.h"
-#include "types/object.h"
 #include "types/function.h"
 #include "types/list.h"
 #include "ast/ast.h"
@@ -131,9 +130,8 @@ static ASTNode *parse_literal_node()
     }
     else if (current.type == TOKEN_LBRACE)
     {
-        ASTNode *obj = parse_object_literal();
-        n->data.lit.literal_value = obj->data.lit.literal_value;
-        free(obj);
+        free(n);
+        return parse_object_literal();
     }
     else if (current.type == TOKEN_LBRACKET)
     {
@@ -679,18 +677,19 @@ ASTNode *parse_object_literal()
     int col = prev_col;
 
     int cap = 4, count = 0;
-    KeyValuePair *pairs = malloc(cap * sizeof(KeyValuePair));
+    char **keys = malloc(sizeof(char *) * cap);
+    ASTNode **vals = malloc(sizeof(ASTNode *) * cap);
 
     while (current.type != TOKEN_RBRACE)
     {
-        // Skip newlines
         while (current.type == TOKEN_NEWLINE)
             advance_token();
 
         if (count == cap)
         {
             cap *= 2;
-            pairs = realloc(pairs, cap * sizeof(KeyValuePair));
+            keys = realloc(keys, sizeof(char *) * cap);
+            vals = realloc(vals, sizeof(ASTNode *) * cap);
         }
 
         if (current.type != TOKEN_IDENTIFIER)
@@ -700,53 +699,26 @@ ASTNode *parse_object_literal()
         }
 
         char *key = strdup(current.value);
+        int key_line = current.line;
+        int key_col = current.column;
         advance_token();
-        expect(TOKEN_COLON, "':'");
 
-        Value val;
-
-        if (current.type == TOKEN_STRING)
+        ASTNode *val_node;
+        if (match(TOKEN_COLON))
         {
-            val.type = VAL_STRING;
-            val.str = strdup(current.value);
-            advance_token();
-        }
-        else if (current.type == TOKEN_NUMBER)
-        {
-            val.type = VAL_NUMBER;
-            val.num = atof(current.value);
-            advance_token();
-        }
-        else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
-        {
-            val.type = VAL_BOOL;
-            val.boolean = (current.type == TOKEN_TRUE);
-            advance_token();
-        }
-        else if (current.type == TOKEN_NULL)
-        {
-            val.type = VAL_NULL;
-            advance_token();
-        }
-        else if (current.type == TOKEN_LBRACE)
-        {
-            ASTNode *inner_obj_node = parse_object_literal();
-            val = inner_obj_node->data.lit.literal_value;
-            free(inner_obj_node);
+            val_node = parse_expression();
         }
         else
         {
-            log_script_error(current.line, current.column, "Expected literal value in object");
-            exit(1);
+            val_node = new_var_node(strdup(key), key_line, key_col);
         }
 
-        pairs[count].key = key;
-        pairs[count].value = val;
+        keys[count] = key;
+        vals[count] = val_node;
         count++;
 
         if (!match(TOKEN_COMMA))
         {
-            // Allow trailing newline(s) after last value
             while (current.type == TOKEN_NEWLINE)
                 advance_token();
             break;
@@ -755,14 +727,10 @@ ASTNode *parse_object_literal()
 
     expect(TOKEN_RBRACE, "'}'");
 
-    Object *obj = malloc(sizeof(Object));
-    obj->count = count;
-    obj->capacity = cap;
-    obj->pairs = pairs;
-
-    ASTNode *obj_node = new_node(NODE_LITERAL, line, col);
-    obj_node->data.lit.literal_value.type = VAL_OBJECT;
-    obj_node->data.lit.literal_value.obj = obj;
+    ASTNode *obj_node = new_node(NODE_OBJECT_LITERAL, line, col);
+    obj_node->data.object.keys = keys;
+    obj_node->data.object.values = vals;
+    obj_node->data.object.pair_count = count;
 
     return obj_node;
 }
@@ -809,12 +777,6 @@ ASTNode *parse_list_literal()
         {
             items[count].type = VAL_NULL;
             advance_token();
-        }
-        else if (current.type == TOKEN_LBRACE)
-        {
-            ASTNode *obj = parse_object_literal();
-            items[count] = obj->data.lit.literal_value;
-            free(obj);
         }
         else if (current.type == TOKEN_LBRACKET)
         {

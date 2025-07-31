@@ -239,6 +239,19 @@ static Value eval_node(ASTNode *n)
         return resolve_attribute_chain(n);
     case NODE_LITERAL:
         return clone_value(&n->data.lit.literal_value);
+    case NODE_OBJECT_LITERAL:
+    {
+        Object *obj = malloc(sizeof(Object));
+        obj->count = 0;
+        obj->capacity = 0;
+        obj->pairs = NULL;
+        for (int i = 0; i < n->data.object.pair_count; ++i)
+        {
+            Value val = eval_node(n->data.object.values[i]);
+            object_set(obj, n->data.object.keys[i], val);
+        }
+        return (Value){.type = VAL_OBJECT, .obj = obj};
+    }
     case NODE_FUNC_CALL:
         return exec_func_call(n);
     case NODE_POSTFIX_INC:
