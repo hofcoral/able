@@ -1,0 +1,5 @@
+class Person():
+    set init to (this, name):
+        this.name to name
+    set greet to (this):
+        pr("Hi ", this.name)
