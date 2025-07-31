@@ -1,0 +1,3 @@
+from examples.modules.person_mod import Person
+set p to Person("Alice")
+p.greet()

@@ -926,6 +926,8 @@ Value run_ast(ASTNode **nodes, int count)
                     fn->params[p] = strdup(method->data.method.params[p]);
                 fn->body = method->children;
                 fn->body_count = method->child_count;
+                method->children = NULL;
+                method->child_count = 0;
                 fn->env = interpreter_current_env();
                 env_retain(interpreter_current_env());
                 fn->bind_on_access = !method->is_static;
