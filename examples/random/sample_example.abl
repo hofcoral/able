@@ -1,0 +1,7 @@
+from random.core import Random
+
+set rng to Random(42)
+pr(rng.choice([1, 2, 3, 4]))
+set picks to rng.sample([1, 2, 3, 4], 3)
+for v of picks:
+    pr(v)

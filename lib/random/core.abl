@@ -21,6 +21,15 @@ class Random():
     set randint to (this, lo, hi):
         return lo + this.next_num() % (hi - lo + 1)
 
+    set choice to (this, seq):
+        return seq.get(this.randint(0, len(seq) - 1))
+
+    set sample to (this, seq, k):
+        set result to list()
+        for i of k:
+            result.append(this.choice(seq))
+        return result
+
 set default_seed to int(time())
 set default_rng to Random(default_seed)
 
@@ -32,3 +41,9 @@ set rand to ():
 
 set randint to (lo, hi):
     return default_rng.randint(lo, hi)
+
+set choice to (seq):
+    return default_rng.choice(seq)
+
+set sample to (seq, k):
+    return default_rng.sample(seq, k)
