@@ -1,4 +1,5 @@
 # random core functions using a simple linear congruential generator
+from time import time
 set RAND_MOD to 2147483648
 set RAND_A to 1103515245
 set RAND_C to 12345
@@ -20,7 +21,8 @@ class Random():
     set randint to (this, lo, hi):
         return lo + this.next_num() % (hi - lo + 1)
 
-set default_rng to Random(1)
+set default_seed to int(time())
+set default_rng to Random(default_seed)
 
 set seed to (s):
     default_rng.seed(s)
