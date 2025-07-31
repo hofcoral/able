@@ -1,0 +1,32 @@
+# random core functions using a simple linear congruential generator
+set RAND_MOD to 2147483648
+set RAND_A to 1103515245
+set RAND_C to 12345
+
+class Random():
+    set init to (this, seed):
+        this.state to seed % RAND_MOD
+
+    set seed to (this, s):
+        this.state to s % RAND_MOD
+
+    set next_num to (this):
+        this.state to (RAND_A * this.state + RAND_C) % RAND_MOD
+        return this.state
+
+    set rand to (this):
+        return this.next_num() / RAND_MOD
+
+    set randint to (this, lo, hi):
+        return lo + this.next_num() % (hi - lo + 1)
+
+set default_rng to Random(1)
+
+set seed to (s):
+    default_rng.seed(s)
+
+set rand to ():
+    return default_rng.rand()
+
+set randint to (lo, hi):
+    return default_rng.randint(lo, hi)

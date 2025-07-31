@@ -1,0 +1,6 @@
+from random import Random
+
+# create a generator with a fixed seed
+set rng to Random(42)
+pr(rng.randint(1, 10))
+pr(rng.randint(1, 10))
