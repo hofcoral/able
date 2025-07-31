@@ -18,5 +18,9 @@ class ImportTests(AbleTestCase):
         output = self.run_script('examples/modules/import_custom.abl')
         self.assertEqual(output, 'Hello, Codex\n')
 
+    def test_class_import(self):
+        output = self.run_script('examples/modules/import_class.abl')
+        self.assertEqual(output, 'Hi Alice\n')
+
 if __name__ == '__main__':
     unittest.main()
