@@ -14,6 +14,10 @@ class ImportTests(AbleTestCase):
         output = self.run_script('examples/modules/import_sqrt.abl')
         self.assertEqual(output, '3\n')
 
+    def test_math_round(self):
+        output = self.run_script('examples/modules/import_round.abl')
+        self.assertEqual(output, '3\n3\n')
+
     def test_custom_module(self):
         output = self.run_script('examples/modules/import_custom.abl')
         self.assertEqual(output, 'Hello, Codex\n')

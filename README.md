@@ -77,6 +77,14 @@ from math import sqrt
 pr(sqrt(9))
 ```
 
+Rounding helpers are also available:
+
+```able
+from math import ceil, round
+pr(ceil(23 / 10))
+pr(round(26 / 10))
+```
+
 The `time` module offers simple timing utilities:
 
 ```able
