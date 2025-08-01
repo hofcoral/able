@@ -1,1 +1,1 @@
-from random.core import Random, seed, rand, randint
+from random.core import Random, seed, rand, randint, choice, sample
