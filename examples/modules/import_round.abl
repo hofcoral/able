@@ -1,0 +1,3 @@
+from math import ceil, round
+pr(ceil(23 / 10))
+pr(round(26 / 10))

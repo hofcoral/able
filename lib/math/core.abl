@@ -7,3 +7,20 @@ set sqrt to (x):
     while abs(guess * guess - x) > epsilon:
         guess to (guess + x / guess) / 2
     return guess
+
+set floor to (x):
+    set i to int(x)
+    if i > x:
+        return i - 1
+    return i
+
+set ceil to (x):
+    set i to int(x)
+    if i < x:
+        return i + 1
+    return i
+
+set round to (x):
+    if x >= 0:
+        return int(x + 1 / 2)
+    return int(x - 1 / 2)
