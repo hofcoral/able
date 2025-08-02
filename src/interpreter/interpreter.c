@@ -1139,8 +1139,6 @@ Value run_ast(ASTNode **nodes, int count)
         }
         case NODE_IMPORT_NAMES:
         {
-            Value mod = import_module_value(n->data.import_names.module_name,
-                                           n->line, n->column);
             for (int i = 0; i < n->data.import_names.name_count; ++i)
             {
                 Value attr = import_module_attr(n->data.import_names.module_name,
