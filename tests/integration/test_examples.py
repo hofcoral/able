@@ -31,6 +31,7 @@ EXAMPLES = {
     'examples/types/object_type.abl': 'OBJECT\n',
     'examples/types/function_type.abl': 'FUNCTION\n',
     'examples/variables/list_ops.abl': '1\n2\n3\n',
+    'examples/variables/list_indexing.abl': '10\n[20, 30, 40, 50]\n[10, 20, 30]\n50\n',
     'examples/control/for_loop.abl': '1\n2\n3\n',
     'examples/control/for_number.abl': '0\n1\n2\n3\n4\n',
     'examples/control/while_loop.abl': '0\n1\n2\n',

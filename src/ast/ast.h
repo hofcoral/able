@@ -28,7 +28,8 @@ typedef enum
     NODE_IMPORT_NAMES,
     NODE_POSTFIX_INC,
     NODE_UNARY,
-    NODE_OBJECT_LITERAL
+    NODE_OBJECT_LITERAL,
+    NODE_INDEX
 } NodeType;
 
 typedef enum
@@ -138,6 +139,13 @@ typedef struct ASTNode
             int pair_count;
         } object;
 
+        struct
+        {
+            bool is_slice;
+            bool has_start;
+            bool has_end;
+        } index;
+
         /* (add new kinds here—LIST_LITERAL, CLASS_DEF, FOR_LOOP, etc.) */
     } data;
 
@@ -157,6 +165,7 @@ ASTNode *new_postfix_inc_node(struct ASTNode *target);
 ASTNode *new_unary_node(UnaryOp op, struct ASTNode *expr, int line, int column);
 ASTNode *new_ternary_node(struct ASTNode *cond, struct ASTNode *true_expr,
                           struct ASTNode *false_expr, int line, int column);
+ASTNode *new_index_node(bool is_slice, bool has_start, bool has_end, int line, int column);
 void add_child(ASTNode *parent, ASTNode *child);
 
 /* Cleanup */

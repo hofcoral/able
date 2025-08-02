@@ -15,5 +15,6 @@ void list_append(List *list, Value val);
 Value list_remove(List *list, int index);
 Value list_get(List *list, int index);
 void list_extend(List *list, const List *other);
+List *list_slice(const List *list, int start, int end);
 
 #endif

@@ -294,6 +294,55 @@ static Value eval_node(ASTNode *n)
         }
         return old;
     }
+    case NODE_INDEX:
+    {
+        Value collection = eval_node(n->children[0]);
+        if (collection.type != VAL_LIST)
+        {
+            log_script_error(n->line, n->column, "Indexing requires a list");
+            exit(1);
+        }
+        if (n->data.index.is_slice)
+        {
+            int start = 0;
+            int end = collection.list->count;
+            int child_idx = 1;
+            if (n->data.index.has_start)
+            {
+                Value sv = eval_node(n->children[child_idx++]);
+                if (sv.type != VAL_NUMBER)
+                {
+                    log_script_error(n->line, n->column,
+                                      "Slice start must be a number");
+                    exit(1);
+                }
+                start = (int)sv.num;
+            }
+            if (n->data.index.has_end)
+            {
+                Value ev = eval_node(n->children[child_idx]);
+                if (ev.type != VAL_NUMBER)
+                {
+                    log_script_error(n->line, n->column,
+                                      "Slice end must be a number");
+                    exit(1);
+                }
+                end = (int)ev.num;
+            }
+            List *slice = list_slice(collection.list, start, end);
+            Value res = {.type = VAL_LIST, .list = slice};
+            return res;
+        }
+        Value idxv = eval_node(n->children[1]);
+        if (idxv.type != VAL_NUMBER)
+        {
+            log_script_error(n->line, n->column, "List index must be a number");
+            exit(1);
+        }
+        int idx = (int)idxv.num;
+        Value item = list_get(collection.list, idx);
+        return clone_value(&item);
+    }
     case NODE_UNARY:
     {
         Value val = eval_node(n->children[0]);

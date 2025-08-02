@@ -1,0 +1,5 @@
+set lst to [10, 20, 30, 40, 50]
+pr(lst[0])
+pr(lst[1:])
+pr(lst[:3])
+pr(lst[-1])
