@@ -91,6 +91,15 @@ ASTNode *new_ternary_node(ASTNode *cond, ASTNode *true_expr, ASTNode *false_expr
     return n;
 }
 
+ASTNode *new_index_node(bool is_slice, bool has_start, bool has_end, int line, int column)
+{
+    ASTNode *n = new_node(NODE_INDEX, line, column);
+    n->data.index.is_slice = is_slice;
+    n->data.index.has_start = has_start;
+    n->data.index.has_end = has_end;
+    return n;
+}
+
 void add_child(ASTNode *parent, ASTNode *child)
 {
     parent->children = realloc(parent->children, sizeof(ASTNode *) * (parent->child_count + 1));

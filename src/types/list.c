@@ -59,6 +59,8 @@ Value list_remove(List *list, int index)
 Value list_get(List *list, int index)
 {
     Value undef = {.type = VAL_UNDEFINED};
+    if (index < 0)
+        index += list->count;
     if (index < 0 || index >= list->count)
         return undef;
     return list->items[index];
@@ -69,4 +71,26 @@ void list_extend(List *list, const List *other)
     ensure_capacity(list, list->count + other->count);
     for (int i = 0; i < other->count; ++i)
         list->items[list->count++] = clone_value(&other->items[i]);
+}
+
+List *list_slice(const List *list, int start, int end)
+{
+    if (start < 0)
+        start += list->count;
+    if (end < 0)
+        end += list->count;
+    if (start < 0)
+        start = 0;
+    if (end > list->count)
+        end = list->count;
+    if (end < start)
+        end = start;
+
+    List *res = malloc(sizeof(List));
+    res->count = 0;
+    res->capacity = 0;
+    res->items = NULL;
+    for (int i = start; i < end; ++i)
+        list_append(res, list->items[i]);
+    return res;
 }

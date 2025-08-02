@@ -653,14 +653,65 @@ static ASTNode *parse_primary()
 static ASTNode *parse_postfix()
 {
     ASTNode *node = parse_primary();
-    if (match(TOKEN_INC))
+    while (1)
     {
-        if (node->type != NODE_VAR && node->type != NODE_ATTR_ACCESS)
+        if (match(TOKEN_INC))
         {
-            log_script_error(prev_line, prev_col, "Invalid increment target");
-            exit(1);
+            if (node->type != NODE_VAR && node->type != NODE_ATTR_ACCESS)
+            {
+                log_script_error(prev_line, prev_col, "Invalid increment target");
+                exit(1);
+            }
+            node = new_postfix_inc_node(node);
+            continue;
         }
-        return new_postfix_inc_node(node);
+        if (current.type == TOKEN_LBRACKET)
+        {
+            expect(TOKEN_LBRACKET, "'['");
+            int line = prev_line;
+            int col = prev_col;
+            bool is_slice = false;
+            bool has_start = false;
+            bool has_end = false;
+            ASTNode *start = NULL;
+            ASTNode *end = NULL;
+
+            if (current.type != TOKEN_COLON && current.type != TOKEN_RBRACKET)
+            {
+                start = parse_expression();
+                has_start = true;
+            }
+            if (match(TOKEN_COLON))
+            {
+                is_slice = true;
+                if (current.type != TOKEN_RBRACKET)
+                {
+                    end = parse_expression();
+                    has_end = true;
+                }
+            }
+            else if (!has_start)
+            {
+                log_script_error(current.line, current.column, "Expected index expression");
+                exit(1);
+            }
+
+            expect(TOKEN_RBRACKET, "]");
+            ASTNode *idx = new_index_node(is_slice, has_start, has_end, line, col);
+            add_child(idx, node);
+            if (has_start)
+                add_child(idx, start);
+            if (has_end)
+                add_child(idx, end);
+            node = idx;
+            continue;
+        }
+        if (current.type == TOKEN_LPAREN)
+        {
+            node = finish_func_call(node);
+            continue;
+        }
+        break;
     }
     return node;
 }
