@@ -28,6 +28,7 @@ typedef enum
     NODE_IMPORT_NAMES,
     NODE_POSTFIX_INC,
     NODE_UNARY,
+    NODE_AWAIT,
     NODE_OBJECT_LITERAL,
     NODE_INDEX
 } NodeType;
@@ -108,6 +109,7 @@ typedef struct ASTNode
             char *method_name;
             char **params;
             int param_count;
+            bool is_async;
         } method;
 
         struct

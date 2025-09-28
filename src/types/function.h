@@ -15,6 +15,7 @@ typedef struct Function
     int body_count;
     struct Env *env;
     bool bind_on_access;
+    bool is_async;
 } Function;
 
 #endif

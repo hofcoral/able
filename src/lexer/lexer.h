@@ -22,6 +22,8 @@ typedef enum
     TOKEN_GET,
     TOKEN_POST,
     TOKEN_RETURN,
+    TOKEN_ASYNC,
+    TOKEN_AWAIT,
     TOKEN_IF,
     TOKEN_ELIF,
     TOKEN_ELSE,

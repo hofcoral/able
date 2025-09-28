@@ -2,6 +2,7 @@
 #include "interpreter/builtins.h"
 #include "interpreter/module.h"
 #include "types/object.h"
+#include "types/promise.h"
 #include "types/value.h"
 #include "utils/utils.h"
 
@@ -21,6 +22,8 @@ void builtins_register(Env *global_env, const char *file_path)
     set_variable(global_env, "__version__", ver);
     Value filev = {.type = VAL_STRING, .str = strdup(file_path)};
     set_variable(global_env, "__file__", filev);
+    Value promise_ns = promise_namespace_value();
+    set_variable(global_env, "Promise", promise_ns);
 
     /* Load Able-defined built-ins from lib/builtins.abl */
     Value mod = import_module_value("builtins", 0, 0);
