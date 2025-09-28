@@ -1,49 +1,49 @@
 # random core functions using a simple linear congruential generator
 from time import time
-set RAND_MOD to 2147483648
-set RAND_A to 1103515245
-set RAND_C to 12345
+RAND_MOD = 2147483648
+RAND_A = 1103515245
+RAND_C = 12345
 
 class Random():
-    set init to (this, seed):
-        this.state to seed % RAND_MOD
+    fun init(this, seed):
+        this.state = seed % RAND_MOD
 
-    set seed to (this, s):
-        this.state to s % RAND_MOD
+    fun seed(this, s):
+        this.state = s % RAND_MOD
 
-    set next_num to (this):
-        this.state to (RAND_A * this.state + RAND_C) % RAND_MOD
+    fun next_num(this):
+        this.state = (RAND_A * this.state + RAND_C) % RAND_MOD
         return this.state
 
-    set rand to (this):
+    fun rand(this):
         return this.next_num() / RAND_MOD
 
-    set randint to (this, lo, hi):
+    fun randint(this, lo, hi):
         return lo + this.next_num() % (hi - lo + 1)
 
-    set choice to (this, seq):
+    fun choice(this, seq):
         return seq.get(this.randint(0, len(seq) - 1))
 
-    set sample to (this, seq, k):
-        set result to list()
+    fun sample(this, seq, k):
+        result = list()
         for i of k:
             result.append(this.choice(seq))
         return result
 
-set default_seed to int(time())
-set default_rng to Random(default_seed)
+default_seed = int(time())
+default_rng = Random(default_seed)
 
-set seed to (s):
+fun seed(s):
     default_rng.seed(s)
 
-set rand to ():
+fun rand():
     return default_rng.rand()
 
-set randint to (lo, hi):
+fun randint(lo, hi):
     return default_rng.randint(lo, hi)
 
-set choice to (seq):
+fun choice(seq):
     return default_rng.choice(seq)
 
-set sample to (seq, k):
+fun sample(seq, k):
     return default_rng.sample(seq, k)

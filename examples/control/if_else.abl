@@ -1,4 +1,4 @@
-set x to ""
+x = ""
 if x:
     pr("A")
 elif x == "":

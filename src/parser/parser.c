@@ -220,14 +220,8 @@ static void parse_function_parts(char ***out_params, int *out_param_count,
     *out_body_count = body_count;
 }
 
-static Function *parse_function_def()
+static Function *build_function(char **params, int param_count, ASTNode **body, int body_count)
 {
-    char **params;
-    int param_count;
-    ASTNode **body;
-    int body_count;
-    parse_function_parts(&params, &param_count, &body, &body_count);
-
     Function *fn = malloc(sizeof(Function));
     fn->name = NULL;
     fn->param_count = param_count;
@@ -239,68 +233,49 @@ static Function *parse_function_def()
     return fn;
 }
 
+static ASTNode *parse_function_literal_node(const char *name_hint, int line, int col)
+{
+    char **params;
+    int param_count;
+    ASTNode **body;
+    int body_count;
+    parse_function_parts(&params, &param_count, &body, &body_count);
 
-static ASTNode *parse_set_stmt()
+    Function *fn = build_function(params, param_count, body, body_count);
+    if (name_hint)
+        fn->name = strdup(name_hint);
+
+    ASTNode *lit = new_node(NODE_LITERAL, line, col);
+    lit->data.lit.literal_value.type = VAL_FUNCTION;
+    lit->data.lit.literal_value.func = fn;
+    return lit;
+}
+
+static ASTNode *parse_fun_declaration(bool is_private)
 {
     int line = prev_line;
     int col = prev_col;
-    ASTNode *dest = parse_identifier_chain();
-    char *set_name = NULL;
-    ASTNode *set_attr = NULL;
-    if (dest->type == NODE_VAR)
-    {
-        set_name = dest->data.set.set_name;
-        free(dest);
-    }
-    else
-    {
-        set_attr = dest;
-    }
-    ASTNode *n = new_set_node(set_name, set_attr, line, col);
 
-    if (current.type != TOKEN_TO)
+    if (current.type != TOKEN_IDENTIFIER)
     {
-        log_script_error(current.line, current.column, "Expected 'to' after variable name");
+        log_script_error(current.line, current.column, "Expected function name");
         exit(1);
     }
+
+    char *name = strdup(current.value);
     advance_token();
 
-    if (current.type == TOKEN_LPAREN)
-    {
-        // Determine if this is a function definition by peeking for ':' after ')'
-        size_t save_pos = L->pos;
-        int is_func = 0;
-        int depth = 1;
-        while (save_pos < L->length && depth > 0)
-        {
-            char c = L->source[save_pos++];
-            if (c == '(')
-                depth++;
-            else if (c == ')')
-                depth--;
-        }
-        if (depth == 0 && save_pos < L->length && L->source[save_pos] == ':')
-            is_func = 1;
+    ASTNode *assign = new_set_node(name, NULL, line, col);
+    ASTNode *lit = parse_function_literal_node(name, line, col);
+    add_child(assign, lit);
 
-        if (is_func)
-        {
-            Function *fn = parse_function_def();
-            fn->name = strdup(n->data.set.set_name);
-            ASTNode *lit = new_node(NODE_LITERAL, line, col);
-            lit->data.lit.literal_value.type = VAL_FUNCTION;
-            lit->data.lit.literal_value.func = fn;
-            add_child(n, lit);
-            return n;
-        }
-    }
+    if (is_private)
+        assign->is_private = true;
 
-    ASTNode *expr = parse_expression();
-    add_child(n, expr);
-
-    return n;
+    return assign;
 }
 
-static ASTNode *parse_to_assignment(ASTNode *dest)
+static ASTNode *parse_assignment(ASTNode *dest)
 {
     int line = dest->line;
     int col = dest->column;
@@ -317,40 +292,10 @@ static ASTNode *parse_to_assignment(ASTNode *dest)
         set_attr = dest;
     }
 
-    ASTNode *n = new_set_node(set_name, set_attr, line, col);
-
-    if (current.type == TOKEN_LPAREN)
-    {
-        size_t save_pos = L->pos;
-        int is_func = 0;
-        int depth = 1;
-        while (save_pos < L->length && depth > 0)
-        {
-            char c = L->source[save_pos++];
-            if (c == '(')
-                depth++;
-            else if (c == ')')
-                depth--;
-        }
-        if (depth == 0 && save_pos < L->length && L->source[save_pos] == ':')
-            is_func = 1;
-
-        if (is_func)
-        {
-            Function *fn = parse_function_def();
-            fn->name = set_name ? strdup(set_name) : NULL;
-            ASTNode *lit = new_node(NODE_LITERAL, line, col);
-            lit->data.lit.literal_value.type = VAL_FUNCTION;
-            lit->data.lit.literal_value.func = fn;
-            add_child(n, lit);
-            return n;
-        }
-    }
-
+    ASTNode *assign = new_set_node(set_name, set_attr, line, col);
     ASTNode *expr = parse_expression();
-    add_child(n, expr);
-
-    return n;
+    add_child(assign, expr);
+    return assign;
 }
 static ASTNode *parse_class_def()
 {
@@ -415,7 +360,7 @@ static ASTNode *parse_class_def()
             static_flag = true;
             continue;
         }
-        if (match(TOKEN_SET))
+        if (match(TOKEN_FUN))
         {
             if (current.type != TOKEN_IDENTIFIER)
             {
@@ -424,7 +369,6 @@ static ASTNode *parse_class_def()
             }
             char *mname = strdup(current.value);
             advance_token();
-            expect(TOKEN_TO, "to");
             ASTNode *m = parse_method_def(mname, static_flag, prev_line, prev_col);
             add_child(cls, m);
             static_flag = false;
@@ -625,6 +569,8 @@ static ASTNode *parse_expression()
 
 static ASTNode *parse_primary()
 {
+    if (match(TOKEN_FUN))
+        return parse_function_literal_node(NULL, prev_line, prev_col);
     if (current.type == TOKEN_IDENTIFIER)
     {
         ASTNode *node = parse_identifier_chain();
@@ -1060,16 +1006,11 @@ static ASTNode *parse_statement()
         while (current.type == TOKEN_NEWLINE)
             advance_token();
     }
-    if (match(TOKEN_SET))
+    if (match(TOKEN_FUN))
+        return parse_fun_declaration(private_flag);
+    if (private_flag && current.type != TOKEN_IDENTIFIER)
     {
-        ASTNode *n = parse_set_stmt();
-        if (private_flag)
-            n->is_private = true;
-        return n;
-    }
-    if (private_flag)
-    {
-        log_script_error(current.line, current.column, "Expected 'set' after @private");
+        log_script_error(current.line, current.column, "Expected assignment after @private");
         exit(1);
     }
     if (match(TOKEN_RETURN))
@@ -1093,8 +1034,18 @@ static ASTNode *parse_statement()
     if (current.type == TOKEN_IDENTIFIER)
     {
         ASTNode *id = parse_identifier_chain();
-        if (match(TOKEN_TO))
-            return parse_to_assignment(id);
+        if (match(TOKEN_ASSIGN))
+        {
+            ASTNode *n = parse_assignment(id);
+            if (private_flag)
+                n->is_private = true;
+            return n;
+        }
+        if (private_flag)
+        {
+            log_script_error(current.line, current.column, "Expected '=' after @private target");
+            exit(1);
+        }
         if (current.type == TOKEN_LPAREN)
             return finish_func_call(id);
         if (match(TOKEN_INC))

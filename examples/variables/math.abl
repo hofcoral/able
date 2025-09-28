@@ -1,6 +1,6 @@
-set num to 1 + 2 * 3 - 4 / 2
+num = 1 + 2 * 3 - 4 / 2
 pr(num)
-set greeting to "Hello " + "World"
+greeting = "Hello " + "World"
 pr(greeting)
-set modulo to 11 % 10
+modulo = 11 % 10
 pr(modulo)

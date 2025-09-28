@@ -1,2 +1,2 @@
-set greet to (name, place): pr(name, place)
+fun greet(name, place): pr(name, place)
 greet("Alice", "Wonderland")

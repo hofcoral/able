@@ -9,8 +9,7 @@
 typedef enum
 {
     TOKEN_EOF,
-    TOKEN_SET,
-    TOKEN_TO,
+    TOKEN_FUN,
     TOKEN_IDENTIFIER,
     TOKEN_NUMBER,
     TOKEN_STRING,

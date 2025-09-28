@@ -1,7 +1,7 @@
-set person to {name: { f_name: "Hof", l_name: "Coral"}, age: 22}
+person = {name: { f_name: "Hof", l_name: "Coral"}, age: 22}
 
 # This is a comment
-set my_name to person.name
+my_name = person.name
 
 pr("First name:", my_name.f_name)
 pr()

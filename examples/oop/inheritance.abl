@@ -1,14 +1,14 @@
 class Greeter():
-    set speak to (this):
+    fun speak(this):
         pr("hello")
 
 class LoudGreeter(Greeter):
-    set speak to (this):
+    fun speak(this):
         Greeter.speak(this)
         pr("HELLO")
 
-set g to Greeter()
-set lg to LoudGreeter()
+g = Greeter()
+lg = LoudGreeter()
 
 g.speak()
 lg.speak()

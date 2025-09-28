@@ -1,2 +1,2 @@
-set echo to (value): return value
+fun echo(value): return value
 pr(echo("test"))

@@ -1,9 +1,9 @@
 @private
-set secret to 42
+secret = 42
 
-set greet to (name):
+fun greet(name):
     return "Hello, " + name
 
 @private
-set hidden to ():
+fun hidden():
     pr("hidden")

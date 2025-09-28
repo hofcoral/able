@@ -1,4 +1,4 @@
-set active to true
+active = true
 pr(active)
-set active to false
+active = false
 pr(active)

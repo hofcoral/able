@@ -203,10 +203,8 @@ Token next_token(Lexer *lexer)
 
         size_t len = &lexer->source[lexer->pos] - start;
 
-        if (len == 3 && strncmp(start, "set", len) == 0)
-            return make_token(TOKEN_SET, start, len, lexer->line, column);
-        if (len == 2 && strncmp(start, "to", len) == 0)
-            return make_token(TOKEN_TO, start, len, lexer->line, column);
+        if (len == 3 && strncmp(start, "fun", len) == 0)
+            return make_token(TOKEN_FUN, start, len, lexer->line, column);
         if (len == 2 && strncmp(start, "if", len) == 0)
             return make_token(TOKEN_IF, start, len, lexer->line, column);
         if (len == 4 && strncmp(start, "elif", len) == 0)

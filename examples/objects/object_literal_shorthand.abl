@@ -1,6 +1,6 @@
-set make_a_person to (name, age):
+fun make_a_person(name, age):
     return { first_name: name.first, last_name: name.last, age }
 
-set tmp_name to { first: "Hof", last: "Coral" }
-set person to make_a_person(tmp_name, 22)
+tmp_name = { first: "Hof", last: "Coral" }
+person = make_a_person(tmp_name, 22)
 pr(person.age)
