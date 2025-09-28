@@ -1,14 +1,32 @@
 fun abs(x):
-    if x < 0:
-        return 0 - x
-    return x
+    return x < 0 ? 0 - x : x
 
 fun min(a, b):
-    if a < b:
-        return a
-    return b
+    return a < b ? a : b
 
 fun max(a, b):
-    if a > b:
-        return a
-    return b
+    return a < b ? b : a
+
+fun min(iter):
+
+    if len(iter) == 0:
+        return None
+    
+    mnv = iter[0]
+
+    for v of iter[0:]:
+        mnv = min(mnv, v)
+    
+    return mnv
+
+fun max(iter):
+
+    if len(iter) == 0:
+        return None
+    
+    mxv = iter[0]
+
+    for v of iter[0:]:
+        mxv = max(mxv, v)
+    
+    return mxv
