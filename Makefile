@@ -15,7 +15,6 @@ SRCS = \
     $(SRC_DIR)/types/value.c \
     $(SRC_DIR)/types/instance.c \
     $(SRC_DIR)/types/list.c \
-    $(SRC_DIR)/types/function.c \
     $(SRC_DIR)/types/env.c \
     $(SRC_DIR)/interpreter/interpreter.c \
     $(SRC_DIR)/interpreter/module.c \

@@ -7,7 +7,6 @@
 #include "types/instance.h"
 #include "types/function.h"
 
-Value type_lookup(Type *t, const char *name);
 Value value_get_attr(Value receiver, const char *name);
 void value_set_attr(Value receiver, const char *name, Value val);
 
