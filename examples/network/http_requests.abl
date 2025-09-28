@@ -1,0 +1,29 @@
+get_resp = await GET("https://httpbin.org/get")
+pr(get_resp.status)
+pr(get_resp.ok)
+pr(get_resp.url)
+pr(len(get_resp.body) > 0)
+pr(len(get_resp.headers) > 0)
+
+post_resp = await POST("https://httpbin.org/post", {
+    body: "Hello World",
+    headers: {
+        "Content-Type": "text/plain",
+        "X-Demo": "Able"
+    },
+    cache: "no-cache",
+    integrity: "sha256-test",
+    refferer: "https://example.com"
+})
+pr(post_resp.status)
+pr(post_resp.ok)
+pr(len(post_resp.headers) > 0)
+pr(len(post_resp.body) > 0)
+pr(post_resp.method)
+
+auth_resp = await GET("https://httpbin.org/basic-auth/user/passwd", {
+    credentials: "user:passwd"
+})
+pr(auth_resp.status)
+pr(auth_resp.ok)
+pr(auth_resp.method)

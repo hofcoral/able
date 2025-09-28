@@ -18,6 +18,7 @@
 #include "interpreter/interpreter.h"
 #include "interpreter/stack.h"
 #include "interpreter/module.h"
+#include "interpreter/network.h"
 #include "utils/utils.h"
 #include "types/type_registry.h"
 
@@ -639,6 +640,37 @@ static Value eval_node(ASTNode *n)
 
 static Value exec_func_call(ASTNode *n)
 {
+    if (n->data.call.func_callee->type == NODE_VAR)
+    {
+        const char *func_name = n->data.call.func_callee->data.set.set_name;
+        if (network_is_http_method(func_name))
+        {
+            Value *args = NULL;
+            if (n->child_count > 0)
+            {
+                args = malloc(sizeof(Value) * n->child_count);
+                if (!args)
+                {
+                    log_script_error(n->line, n->column, "Failed to allocate arguments for %s", func_name);
+                    exit(1);
+                }
+                for (int j = 0; j < n->child_count; ++j)
+                    args[j] = eval_node(n->children[j]);
+            }
+
+            Value result = network_execute(func_name, args, n->child_count, n->line, n->column);
+
+            if (args)
+            {
+                for (int j = 0; j < n->child_count; ++j)
+                    free_value(args[j]);
+                free(args);
+            }
+
+            return result;
+        }
+    }
+
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "pr") == 0)
     {
         for (int j = 0; j < n->child_count; ++j)
