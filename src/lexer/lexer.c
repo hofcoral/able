@@ -195,7 +195,7 @@ Token next_token(Lexer *lexer)
     }
 
     // Commands
-    if (isalpha(c))
+    if (isalpha(c) || c == '_')
     {
         const char *start = &lexer->source[lexer->pos - 1];
         while (isalnum(peek(lexer)) || peek(lexer) == '_')

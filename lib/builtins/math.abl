@@ -1,32 +1,38 @@
 fun abs(x):
     return x < 0 ? 0 - x : x
 
-fun min(a, b):
+fun pair_min(a, b):
     return a < b ? a : b
 
-fun max(a, b):
+fun pair_max(a, b):
     return a < b ? b : a
 
 fun min(iter):
+    has_value = false
+    best = null
 
-    if len(iter) == 0:
-        return None
-    
-    mnv = iter[0]
+    for value of iter:
+        if not has_value:
+            best = value
+            has_value = true
+        else:
+            best = pair_min(best, value)
 
-    for v of iter[0:]:
-        mnv = min(mnv, v)
-    
-    return mnv
+    if has_value:
+        return best
+    return null
 
 fun max(iter):
+    has_value = false
+    best = null
 
-    if len(iter) == 0:
-        return None
-    
-    mxv = iter[0]
+    for value of iter:
+        if not has_value:
+            best = value
+            has_value = true
+        else:
+            best = pair_max(best, value)
 
-    for v of iter[0:]:
-        mxv = max(mxv, v)
-    
-    return mxv
+    if has_value:
+        return best
+    return null
