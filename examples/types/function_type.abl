@@ -1,2 +1,2 @@
-set f to (): return
+fun f(): return
 pr(type(f))

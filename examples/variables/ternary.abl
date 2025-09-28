@@ -1,4 +1,4 @@
-set flag to true
+flag = true
 pr(flag ? "yes" : "no")
-set flag to false
+flag = false
 pr(flag ? "yes" : "no")

@@ -1,2 +1,2 @@
-set x to "foo"
+x = "foo"
 pr(type(x))

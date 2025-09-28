@@ -23,11 +23,11 @@ Execute an `.abl` file with:
 ### Example
 
 ```able
-set name to "Daniel"
+name = "Daniel"
 pr(name)
 
 # List usage
-set numbers to [1, 2]
+numbers = [1, 2]
 numbers.append(3)
 pr(numbers.get(2))
 
@@ -36,7 +36,7 @@ for i of 3:
     pr(i)
 
 # Increment
-set x to 0
+x = 0
 x++
 pr(x)
 ```
@@ -49,11 +49,11 @@ pr(not false)
 ```able
 # Class usage
 class Person():
-    set init to (this, name):
-        this.name to name
-    set greet to (this):
+    fun init(this, name):
+        this.name = name
+    fun greet(this):
         pr("Hello ", this.name)
-set p to Person("Able")
+p = Person("Able")
 p.greet()
 ```
 
@@ -89,7 +89,7 @@ The `time` module offers simple timing utilities:
 
 ```able
 from time import time, sleep
-set start to time()
+start = time()
 sleep(1)
 pr(time() - start >= 1)
 ```

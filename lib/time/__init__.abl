@@ -1,5 +1,5 @@
-set time to ():
+fun time():
     return time()
 
-set sleep to (seconds):
+fun sleep(seconds):
     sleep(seconds)

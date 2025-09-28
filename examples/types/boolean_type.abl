@@ -1,2 +1,2 @@
-set x to true
+x = true
 pr(type(x))

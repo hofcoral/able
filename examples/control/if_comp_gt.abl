@@ -1,4 +1,4 @@
-set x to 6
+x = 6
 if x < 1:
     pr("lt")
 elif x > 5:

@@ -1,2 +1,2 @@
-set x to null
+x = null
 pr(type(x))

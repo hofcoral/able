@@ -1,14 +1,14 @@
-set abs to (x):
+fun abs(x):
     if x < 0:
         return 0 - x
     return x
 
-set min to (a, b):
+fun min(a, b):
     if a < b:
         return a
     return b
 
-set max to (a, b):
+fun max(a, b):
     if a > b:
         return a
     return b

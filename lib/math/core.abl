@@ -1,26 +1,26 @@
-set add to (a, b):
+fun add(a, b):
     return a + b
 
-set sqrt to (x):
-    set guess to x / 2
-    set epsilon to 1 / 100000
+fun sqrt(x):
+    guess = x / 2
+    epsilon = 1 / 100000
     while abs(guess * guess - x) > epsilon:
-        guess to (guess + x / guess) / 2
+        guess = (guess + x / guess) / 2
     return guess
 
-set floor to (x):
-    set i to int(x)
+fun floor(x):
+    i = int(x)
     if i > x:
         return i - 1
     return i
 
-set ceil to (x):
-    set i to int(x)
+fun ceil(x):
+    i = int(x)
     if i < x:
         return i + 1
     return i
 
-set round to (x):
+fun round(x):
     if x >= 0:
         return int(x + 1 / 2)
     return int(x - 1 / 2)
