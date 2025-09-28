@@ -33,9 +33,10 @@ static ASTNode *parse_continue_stmt();
 static ASTNode *parse_import_module_stmt();
 static ASTNode *parse_from_import_stmt();
 static ASTNode *parse_list_literal();
+static ASTNode *parse_object_literal();
 static ASTNode *parse_method_def(char *name, bool is_static, int line, int col);
 static ASTNode *parse_class_def();
-ASTNode *parse_argument();
+static ASTNode *parse_argument();
 
 static void advance_token() {
     prev_line = current.line;
@@ -662,12 +663,12 @@ static ASTNode *parse_postfix()
     return node;
 }
 
-ASTNode *parse_argument()
+static ASTNode *parse_argument()
 {
     return parse_expression();
 }
 
-ASTNode *parse_object_literal()
+static ASTNode *parse_object_literal()
 {
     expect(TOKEN_LBRACE, "'{'");
     int line = prev_line;

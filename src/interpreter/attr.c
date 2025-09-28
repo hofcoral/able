@@ -3,7 +3,7 @@
 
 #include "interpreter/attr.h"
 
-Value type_lookup(Type *t, const char *name)
+static Value type_lookup(Type *t, const char *name)
 {
     Value val = object_get(t->attributes, name);
     if (val.type != VAL_NULL)

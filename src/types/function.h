@@ -17,6 +17,4 @@ typedef struct Function
     bool bind_on_access;
 } Function;
 
-void free_function(Function *fn);
-
 #endif
