@@ -194,18 +194,204 @@ Automation expectations:
 4. Add regression tests in `tests/integration` with supporting scripts in
    `examples/`.
 
+#### Example: Power (`**`) Operator
+```diff
+// src/lexer/lexer.h
+ typedef enum
+ {
+     TOKEN_STAR,
++    TOKEN_POW,
+     TOKEN_SLASH,
+```
+
+```diff
+// src/ast/ast.h
+ typedef enum
+ {
+     OP_ADD,
+     OP_SUB,
+     OP_MUL,
+     OP_DIV,
+     OP_MOD,
++    OP_POW,
+```
+
+```c
+// src/parser/parser.c (excerpt)
+static ASTNode *parse_power()
+{
+    ASTNode *node = parse_unary();
+    if (current.type == TOKEN_POW)
+    {
+        int op_line = current.line;
+        int op_col = current.column;
+        advance_token();
+        ASTNode *rhs = parse_power(); // Right-associative
+        ASTNode *bin = new_node(NODE_BINARY, op_line, op_col);
+        bin->data.binary.op = OP_POW;
+        add_child(bin, node);
+        add_child(bin, rhs);
+        return bin;
+    }
+    return node;
+}
+
+static ASTNode *parse_factor()
+{
+    ASTNode *node = parse_power();
+    while (current.type == TOKEN_STAR || current.type == TOKEN_SLASH || current.type == TOKEN_PERCENT)
+    {
+        /* existing multiplicative parsing */
+```
+
+```diff
+// src/interpreter/interpreter.c
+        if (left.type == VAL_NUMBER && right.type == VAL_NUMBER)
+        {
+            Value res = {.type = VAL_NUMBER};
+            switch (n->data.binary.op)
+            {
+            case OP_ADD:
+                res.num = left.num + right.num;
+                break;
+            case OP_SUB:
+                res.num = left.num - right.num;
+                break;
+            case OP_MUL:
+                res.num = left.num * right.num;
+                break;
+            case OP_DIV:
+                res.num = right.num != 0 ? left.num / right.num : 0;
+                break;
+            case OP_MOD:
+                res.num = fmod(left.num, right.num);
+                break;
++            case OP_POW:
++                res.num = pow(left.num, right.num);
++                break;
+```
+
+```abl
+# examples/power.abl
+fun square(x):
+    return x ** 2
+
+pr(square(8))
+```
+
+```python
+# tests/integration/test_power.py
+from tests.helpers import AbleTestCase
+
+
+class PowerOperatorTests(AbleTestCase):
+    def test_power_operator(self):
+        result = self.run_script("examples/power.abl")
+        self.assertEqual(result.stdout.strip(), "64")
+```
+
 ### Introducing a Builtin Function
-1. Define the function in `src/interpreter/builtins.c`.
-2. Register it within `builtins_register` so it appears in the global scope.
+1. Extend the builtin registration so the global environment exposes the name.
+2. Implement the helper either as native C code or inside `lib/builtins/`.
 3. Document it with an example script.
 4. Add tests verifying expected output.
+
+#### Example: `clamp` Convenience Helper
+```diff
+// src/interpreter/builtins.c
+ void builtins_register(Env *global_env, const char *file_path)
+ {
+-    const char *funcs[] = {"pr", "input", "type", "len", "bool", "int", "float",
+-                            "str", "list", "dict", "range"};
++    const char *funcs[] = {"pr",   "input", "type",  "len",  "bool",  "int",
++                           "float", "str",   "list", "dict", "range", "clamp"};
+     Value undef = {.type = VAL_UNDEFINED};
+```
+
+```diff
+# lib/builtins/__init__.abl
+-from "builtins/math" import abs, min, max
++from "builtins/math" import abs, min, max
++from "builtins/numeric" import clamp
+```
+
+```abl
+# lib/builtins/numeric.abl
+fun clamp(value, lo, hi):
+    if value < lo:
+        return lo
+    if value > hi:
+        return hi
+    return value
+```
+
+```abl
+# examples/builtins_clamp.abl
+from "builtins" import clamp
+
+pr(clamp(128, 0, 100))
+```
+
+```python
+# tests/integration/test_builtins.py
+class BuiltinClampTests(AbleTestCase):
+    def test_clamp(self):
+        result = self.run_script("examples/builtins_clamp.abl")
+        self.assertEqual(result.stdout.strip(), "100")
+```
 
 ### Creating a New Module
 1. Implement module glue inside `src/interpreter/module.c` if new loading
    behavior is required.
-2. Expose public APIs via `builtins_register` or by preloading the module.
+2. Place Able source under `lib/<module>` (using `__init__.abl` for packages).
 3. Add `.abl` examples illustrating import and usage patterns.
 4. Add integration tests that import the module and assert results.
+
+#### Example: Shipping a `json` Module
+```abl
+# lib/json/__init__.abl
+from "json/parser" import parse
+
+fun dumps(obj):
+    if type(obj) == "object":
+        parts = []
+        for key of obj:
+            parts.append("\"" + str(key) + "\":" + dumps(obj[key]))
+        return "{" + ",".join(parts) + "}"
+    if type(obj) == "list":
+        return "[" + ",".join([dumps(x) for x of obj]) + "]"
+    if type(obj) == "string":
+        return "\"" + obj + "\""
+    return str(obj)
+```
+
+```abl
+# lib/json/parser.abl
+fun parse_number(tokenizer):
+    value = tokenizer.consume_number()
+    return float(value)
+
+fun parse(text):
+    tokenizer = JsonTokenizer(text)
+    return tokenizer.parse_value()
+```
+
+```diff
+// examples/json_roundtrip.abl
++from "json" import dumps, parse
++
++text = "{"a": 1, "b": [2, 3]}"
++obj = parse(text)
++pr(dumps(obj))
+```
+
+```python
+# tests/integration/test_json_module.py
+class JsonModuleTests(AbleTestCase):
+    def test_roundtrip(self):
+        result = self.run_script("examples/json_roundtrip.abl")
+        self.assertIn('{"a": 1, "b": [2, 3]}', result.stdout)
+```
 
 ### Extending Runtime Types
 1. Add or update type definitions in `src/types`.
@@ -213,6 +399,191 @@ Automation expectations:
 3. Ensure the interpreter understands how to operate on the new type (e.g.,
    arithmetic, iteration).
 4. Cover behavior with integration tests.
+
+#### Example: Introducing a `range` Type
+```diff
+// src/types/value.h
+ struct Object; // Forward declaration (to avoid circular include)
+ struct Function; // Forward declaration for functions
+ struct List;    // Forward declaration for lists
+ struct Type;
+ struct Instance;
++struct Range;
+ 
+ typedef enum
+ {
+     VAL_UNDEFINED,
+     VAL_NULL,
+     VAL_BOOL,
+     VAL_NUMBER,
+     VAL_STRING,
+     VAL_OBJECT,
+     VAL_FUNCTION,
+     VAL_LIST,
+     VAL_TYPE,
+     VAL_INSTANCE,
+     VAL_BOUND_METHOD,
++    VAL_RANGE,
+     VAL_TYPE_COUNT
+ } ValueType;
+ 
+ typedef struct Value
+ {
+     ValueType type;
+     union
+     {
+         bool boolean;
+         double num;
+         char *str;
+         struct Object *obj;
+         struct Function *func;
+         struct List *list;
+         struct Type *cls;
+         struct Instance *instance;
+         BoundMethod *bound;
++        struct Range *range;
+     };
+ } Value;
+```
+
+```c
+// src/types/range.h
+#ifndef RANGE_H
+#define RANGE_H
+
+typedef struct Range
+{
+    double cursor;
+    double stop;
+    double step;
+} Range;
+
+Range *range_create(double start, double stop, double step);
+void range_free(Range *range);
+bool range_next(Range *range, double *out);
+
+#endif
+```
+
+```c
+// src/types/range.c
+#include <stdlib.h>
+#include "types/range.h"
+
+Range *range_create(double start, double stop, double step)
+{
+    Range *range = malloc(sizeof(Range));
+    range->cursor = start;
+    range->stop = stop;
+    range->step = step;
+    return range;
+}
+
+void range_free(Range *range)
+{
+    free(range);
+}
+
+bool range_next(Range *range, double *out)
+{
+    if ((range->step > 0 && range->cursor >= range->stop) ||
+        (range->step < 0 && range->cursor <= range->stop))
+        return false;
+
+    *out = range->cursor;
+    range->cursor += range->step;
+    return true;
+}
+```
+
+```diff
+// src/types/value.c
++#include "types/range.h"
+@@
+     case VAL_OBJECT:
+         free_object(v.obj);
+         break;
+     case VAL_LIST:
+         free_list(v.list);
+         break;
++    case VAL_RANGE:
++        range_free(v.range);
++        break;
+@@
+     case VAL_OBJECT:
+         copy.obj = clone_object(src->obj);
+         break;
+     case VAL_FUNCTION:
+         copy.func = src->func;
+         break;
+     case VAL_LIST:
+         copy.list = clone_list(src->list);
+         break;
++    case VAL_RANGE:
++        copy.range = range_create(src->range->cursor, src->range->stop, src->range->step);
++        break;
+```
+
+```diff
+// src/types/type_registry.c
+     register_type(type_create("object"));
+     register_type(type_create("function"));
+     register_type(type_create("list"));
++    register_type(type_create("range"));
+ }
+```
+
+```diff
+// src/interpreter/interpreter.c (iteration support)
+     case NODE_FOR:
+     {
+         Value iterable = eval_node(n->children[0]);
+         ASTNode *body = n->children[1];
++        if (iterable.type == VAL_RANGE)
++        {
++            Range *range = iterable.range;
++            double current;
++            while (range_next(range, &current))
++            {
++                Value next = {.type = VAL_NUMBER, .num = current};
++                set_variable(interpreter_current_env(), n->data.loop.loop_var, next);
++                last = run_ast(body->children, body->child_count);
++                CallFrame *cf = current_frame(&call_stack);
++                if (cf && cf->returning)
++                    break;
++                if (break_flag)
++                {
++                    break_flag = false;
++                    break;
++                }
++                if (continue_flag)
++                {
++                    continue_flag = false;
++                    continue;
++                }
++            }
++            break;
++        }
+         if (iterable.type == VAL_NUMBER)
+         {
+             /* existing loop */
+```
+
+```abl
+# examples/range_iteration.abl
+from "builtins" import range
+
+for value of range(0, 5, 2):
+    pr(value)
+```
+
+```python
+# tests/integration/test_range_type.py
+class RangeTypeTests(AbleTestCase):
+    def test_range_iteration(self):
+        result = self.run_script("examples/range_iteration.abl")
+        self.assertEqual(result.stdout.splitlines(), ["0", "2", "4"])
+```
 
 ---
 
