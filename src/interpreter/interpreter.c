@@ -10,6 +10,7 @@
 #include "types/env.h"
 #include "types/function.h"
 #include "types/list.h"
+#include "types/promise.h"
 #include "types/type.h"
 #include "types/instance.h"
 #include "interpreter/attr.h"
@@ -24,6 +25,95 @@ static CallStack call_stack;
 static bool break_flag = false;
 static bool continue_flag = false;
 
+static Value run_async_task(AsyncTask *task)
+{
+    Function *fn = task->fn;
+    Env *env = env_create(fn->env);
+    int offset = 0;
+    if (task->has_self)
+    {
+        set_variable(env, fn->params[0], task->self);
+        offset = 1;
+    }
+    for (int i = 0; i < task->arg_count; ++i)
+        set_variable(env, fn->params[i + offset], task->args[i]);
+
+    CallFrame frame = {.env = env, .return_ptr = NULL, .returning = false};
+    push_frame(&call_stack, frame);
+    Value result = run_ast(fn->body, fn->body_count);
+    pop_frame(&call_stack);
+    env_release(env);
+    return result;
+}
+
+static Value create_async_promise(Function *fn, Value *args, int arg_count, bool has_self, Value self, int line, int column)
+{
+    AsyncTask *task = async_task_create(fn, args, arg_count, has_self, self, line, column);
+    Promise *promise = promise_create_with_task(task);
+    Value promise_val = {.type = VAL_PROMISE, .promise = promise};
+    return promise_val;
+}
+
+static Value await_promise(Value awaited, int line, int column)
+{
+    Value current = clone_value(&awaited);
+    while (current.type == VAL_PROMISE)
+    {
+        Promise *promise = current.promise;
+        PromiseState state = promise_state(promise);
+
+        if (state == PROMISE_PENDING)
+        {
+            AsyncTask *task = promise_take_task(promise);
+            if (task)
+            {
+                Value result = run_async_task(task);
+                promise_resolve(promise, result);
+                free_value(result);
+                async_task_free(task);
+                state = promise_state(promise);
+            }
+            else
+            {
+                free_value(current);
+                log_script_error(line, column, "Promise is still pending");
+                exit(1);
+            }
+        }
+
+        if (state == PROMISE_FULFILLED)
+        {
+            Value next = promise_clone_result(promise);
+            if (next.type == VAL_PROMISE && next.promise == promise)
+            {
+                free_value(next);
+                free_value(current);
+                log_script_error(line, column, "Promise resolved with itself");
+                exit(1);
+            }
+            free_value(current);
+            current = next;
+            continue;
+        }
+
+        if (state == PROMISE_REJECTED)
+        {
+            Value reason = promise_clone_reason(promise);
+            free_value(current);
+            if (reason.type == VAL_STRING)
+                log_script_error(line, column, "Promise rejected: %s", reason.str);
+            else
+                log_script_error(line, column, "Promise rejected");
+            free_value(reason);
+            exit(1);
+        }
+
+        break;
+    }
+
+    return current;
+}
+
 static Value call_value(Value callee, Value *args, int arg_count, int line, int column)
 {
     if (callee.type == VAL_BOUND_METHOD)
@@ -36,8 +126,10 @@ static Value call_value(Value callee, Value *args, int arg_count, int line, int 
                              fn->param_count - 1, arg_count);
             exit(1);
         }
-        Env *env = env_create(fn->env);
         Value self_val = {.type = VAL_INSTANCE, .instance = callee.bound->self};
+        if (fn->is_async)
+            return create_async_promise(fn, args, arg_count, true, self_val, line, column);
+        Env *env = env_create(fn->env);
         set_variable(env, fn->params[0], self_val);
         for (int p = 0; p < arg_count; ++p)
             set_variable(env, fn->params[p + 1], args[p]);
@@ -48,6 +140,11 @@ static Value call_value(Value callee, Value *args, int arg_count, int line, int 
         Value ret_val = clone_value(&result);
         env_release(env);
         return ret_val;
+    }
+    if (callee.type == VAL_TYPE && promise_type_is_namespace(callee.cls))
+    {
+        log_script_error(line, column, "Promise cannot be instantiated directly");
+        exit(1);
     }
     if (callee.type == VAL_TYPE)
     {
@@ -87,6 +184,11 @@ static Value call_value(Value callee, Value *args, int arg_count, int line, int 
         log_script_error(line, column, "Function expects %d arguments, but got %d",
                          fn->param_count, arg_count);
         exit(1);
+    }
+    if (fn->is_async)
+    {
+        Value undef = {.type = VAL_UNDEFINED};
+        return create_async_promise(fn, args, arg_count, false, undef, line, column);
     }
     Env *env = env_create(fn->env);
     for (int p = 0; p < arg_count; ++p)
@@ -241,6 +343,12 @@ static Value eval_node(ASTNode *n)
         return resolve_attribute_chain(n);
     case NODE_LITERAL:
         return clone_value(&n->data.lit.literal_value);
+    case NODE_AWAIT:
+    {
+        Value awaited = eval_node(n->children[0]);
+        Value resolved = await_promise(awaited, n->line, n->column);
+        return resolved;
+    }
     case NODE_OBJECT_LITERAL:
     {
         Object *obj = malloc(sizeof(Object));
@@ -785,6 +893,41 @@ static Value exec_func_call(ASTNode *n)
             ASTNode *last = attr->children[attr->child_count - 1];
             const char *name = last->data.attr.attr_name;
             Value target = resolve_attr_prefix(attr, attr->child_count - 1);
+            if (promise_value_is_namespace(target))
+            {
+                if (strcmp(name, "resolve") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "Promise.resolve expects one argument");
+                        exit(1);
+                    }
+                    Value value = eval_node(n->children[0]);
+                    if (value.type == VAL_PROMISE)
+                        return value;
+                    Promise *promise = promise_create();
+                    promise_resolve(promise, value);
+                    free_value(value);
+                    Value promise_val = {.type = VAL_PROMISE, .promise = promise};
+                    return promise_val;
+                }
+                if (strcmp(name, "reject") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "Promise.reject expects one argument");
+                        exit(1);
+                    }
+                    Value reason = eval_node(n->children[0]);
+                    Promise *promise = promise_create();
+                    promise_reject(promise, reason);
+                    free_value(reason);
+                    Value promise_val = {.type = VAL_PROMISE, .promise = promise};
+                    return promise_val;
+                }
+                log_script_error(n->line, n->column, "Unknown Promise method '%s'", name);
+                exit(1);
+            }
             if (target.type == VAL_LIST)
             {
                 if (strcmp(name, "append") == 0)
@@ -864,8 +1007,27 @@ static Value exec_func_call(ASTNode *n)
             exit(1);
         }
 
-        Env *call_env = env_create(fn->env);
         Value self_val = {.type = VAL_INSTANCE, .instance = callee_val.bound->self};
+        if (fn->is_async)
+        {
+            Value *arg_vals = NULL;
+            if (n->child_count > 0)
+            {
+                arg_vals = malloc(sizeof(Value) * n->child_count);
+                for (int p = 0; p < n->child_count; ++p)
+                    arg_vals[p] = eval_node(n->children[p]);
+            }
+            Value promise_val = create_async_promise(fn, arg_vals, n->child_count, true, self_val, n->line, n->column);
+            if (arg_vals)
+            {
+                for (int p = 0; p < n->child_count; ++p)
+                    free_value(arg_vals[p]);
+                free(arg_vals);
+            }
+            return promise_val;
+        }
+
+        Env *call_env = env_create(fn->env);
         set_variable(call_env, fn->params[0], self_val);
         for (int p = 0; p < n->child_count; ++p)
         {
@@ -928,6 +1090,26 @@ static Value exec_func_call(ASTNode *n)
                   fn->param_count,
                   n->child_count);
         exit(1);
+    }
+
+    if (fn->is_async)
+    {
+        Value undef = {.type = VAL_UNDEFINED};
+        Value *arg_vals = NULL;
+        if (n->child_count > 0)
+        {
+            arg_vals = malloc(sizeof(Value) * n->child_count);
+            for (int p = 0; p < n->child_count; ++p)
+                arg_vals[p] = eval_node(n->children[p]);
+        }
+        Value promise_val = create_async_promise(fn, arg_vals, n->child_count, false, undef, n->line, n->column);
+        if (arg_vals)
+        {
+            for (int p = 0; p < n->child_count; ++p)
+                free_value(arg_vals[p]);
+            free(arg_vals);
+        }
+        return promise_val;
     }
 
     Env *call_env = env_create(fn->env);
@@ -1013,6 +1195,7 @@ Value run_ast(ASTNode **nodes, int count)
                 fn->env = interpreter_current_env();
                 env_retain(interpreter_current_env());
                 fn->bind_on_access = !method->is_static;
+                fn->is_async = method->data.method.is_async;
                 Value fv = {.type = VAL_FUNCTION, .func = fn};
                 object_set(t->attributes, method->data.method.method_name, fv);
             }

@@ -34,7 +34,7 @@ static ASTNode *parse_import_module_stmt();
 static ASTNode *parse_from_import_stmt();
 static ASTNode *parse_list_literal();
 static ASTNode *parse_object_literal();
-static ASTNode *parse_method_def(char *name, bool is_static, int line, int col);
+static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int line, int col);
 static ASTNode *parse_class_def();
 static ASTNode *parse_argument();
 
@@ -221,7 +221,7 @@ static void parse_function_parts(char ***out_params, int *out_param_count,
     *out_body_count = body_count;
 }
 
-static Function *build_function(char **params, int param_count, ASTNode **body, int body_count)
+static Function *build_function(char **params, int param_count, ASTNode **body, int body_count, bool is_async)
 {
     Function *fn = malloc(sizeof(Function));
     fn->name = NULL;
@@ -231,10 +231,11 @@ static Function *build_function(char **params, int param_count, ASTNode **body, 
     fn->body_count = body_count;
     fn->env = NULL;
     fn->bind_on_access = false;
+    fn->is_async = is_async;
     return fn;
 }
 
-static ASTNode *parse_function_literal_node(const char *name_hint, int line, int col)
+static ASTNode *parse_function_literal_node(const char *name_hint, int line, int col, bool is_async)
 {
     char **params;
     int param_count;
@@ -242,7 +243,7 @@ static ASTNode *parse_function_literal_node(const char *name_hint, int line, int
     int body_count;
     parse_function_parts(&params, &param_count, &body, &body_count);
 
-    Function *fn = build_function(params, param_count, body, body_count);
+    Function *fn = build_function(params, param_count, body, body_count, is_async);
     if (name_hint)
         fn->name = strdup(name_hint);
 
@@ -252,7 +253,7 @@ static ASTNode *parse_function_literal_node(const char *name_hint, int line, int
     return lit;
 }
 
-static ASTNode *parse_fun_declaration(bool is_private)
+static ASTNode *parse_fun_declaration(bool is_private, bool is_async)
 {
     int line = prev_line;
     int col = prev_col;
@@ -267,7 +268,7 @@ static ASTNode *parse_fun_declaration(bool is_private)
     advance_token();
 
     ASTNode *assign = new_set_node(name, NULL, line, col);
-    ASTNode *lit = parse_function_literal_node(name, line, col);
+    ASTNode *lit = parse_function_literal_node(name, line, col, is_async);
     add_child(assign, lit);
 
     if (is_private)
@@ -361,20 +362,32 @@ static ASTNode *parse_class_def()
             static_flag = true;
             continue;
         }
-        if (match(TOKEN_FUN))
+        bool method_async = false;
+        if (match(TOKEN_ASYNC))
         {
-            if (current.type != TOKEN_IDENTIFIER)
-            {
-                log_script_error(current.line, current.column, "Expected method name");
-                exit(1);
-            }
-            char *mname = strdup(current.value);
-            advance_token();
-            ASTNode *m = parse_method_def(mname, static_flag, prev_line, prev_col);
-            add_child(cls, m);
-            static_flag = false;
-            continue;
+            method_async = true;
+            expect(TOKEN_FUN, "'fun'");
         }
+        else if (!match(TOKEN_FUN))
+        {
+            log_script_error(current.line, current.column, "Expected method definition");
+            exit(1);
+        }
+
+        int fun_line = prev_line;
+        int fun_col = prev_col;
+
+        if (current.type != TOKEN_IDENTIFIER)
+        {
+            log_script_error(current.line, current.column, "Expected method name");
+            exit(1);
+        }
+        char *mname = strdup(current.value);
+        advance_token();
+        ASTNode *m = parse_method_def(mname, static_flag, method_async, fun_line, fun_col);
+        add_child(cls, m);
+        static_flag = false;
+        continue;
 
         log_script_error(current.line, current.column, "Unexpected token in class body");
         exit(1);
@@ -383,7 +396,7 @@ static ASTNode *parse_class_def()
     return cls;
 }
 
-static ASTNode *parse_method_def(char *name, bool is_static, int line, int col)
+static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int line, int col)
 {
     char **params;
     int param_count;
@@ -395,6 +408,7 @@ static ASTNode *parse_method_def(char *name, bool is_static, int line, int col)
     m->data.method.method_name = name;
     m->data.method.params = params;
     m->data.method.param_count = param_count;
+    m->data.method.is_async = is_async;
     m->children = body;
     m->child_count = body_count;
     m->is_static = is_static;
@@ -448,6 +462,13 @@ static ASTNode *parse_unary()
     {
         ASTNode *expr = parse_unary();
         return new_unary_node(UNARY_NOT, expr, prev_line, prev_col);
+    }
+    if (match(TOKEN_AWAIT))
+    {
+        ASTNode *expr = parse_unary();
+        ASTNode *await_node = new_node(NODE_AWAIT, prev_line, prev_col);
+        add_child(await_node, expr);
+        return await_node;
     }
     return parse_postfix();
 }
@@ -570,8 +591,15 @@ static ASTNode *parse_expression()
 
 static ASTNode *parse_primary()
 {
+    if (match(TOKEN_ASYNC))
+    {
+        int line = prev_line;
+        int col = prev_col;
+        expect(TOKEN_FUN, "'fun'");
+        return parse_function_literal_node(NULL, line, col, true);
+    }
     if (match(TOKEN_FUN))
-        return parse_function_literal_node(NULL, prev_line, prev_col);
+        return parse_function_literal_node(NULL, prev_line, prev_col, false);
     if (current.type == TOKEN_IDENTIFIER)
     {
         ASTNode *node = parse_identifier_chain();
@@ -1007,8 +1035,13 @@ static ASTNode *parse_statement()
         while (current.type == TOKEN_NEWLINE)
             advance_token();
     }
+    if (match(TOKEN_ASYNC))
+    {
+        expect(TOKEN_FUN, "'fun'");
+        return parse_fun_declaration(private_flag, true);
+    }
     if (match(TOKEN_FUN))
-        return parse_fun_declaration(private_flag);
+        return parse_fun_declaration(private_flag, false);
     if (private_flag && current.type != TOKEN_IDENTIFIER)
     {
         log_script_error(current.line, current.column, "Expected assignment after @private");

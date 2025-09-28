@@ -8,6 +8,7 @@ struct Function; // Forward declaration for functions
 struct List;    // Forward declaration for lists
 struct Type;
 struct Instance;
+struct Promise;
 
 typedef struct BoundMethod {
     struct Instance *self;
@@ -28,6 +29,7 @@ typedef enum
     VAL_TYPE,
     VAL_INSTANCE,
     VAL_BOUND_METHOD,
+    VAL_PROMISE,
     VAL_TYPE_COUNT
 } ValueType;
 
@@ -46,6 +48,7 @@ typedef struct Value
         struct Type *cls;
         struct Instance *instance;
         BoundMethod *bound;
+        struct Promise *promise;
     };
 } Value;
 

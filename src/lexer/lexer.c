@@ -241,6 +241,10 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_POST, start, len, lexer->line, column);
         if (len == 6 && strncmp(start, "return", len) == 0)
             return make_token(TOKEN_RETURN, start, len, lexer->line, column);
+        if (len == 5 && strncmp(start, "async", len) == 0)
+            return make_token(TOKEN_ASYNC, start, len, lexer->line, column);
+        if (len == 5 && strncmp(start, "await", len) == 0)
+            return make_token(TOKEN_AWAIT, start, len, lexer->line, column);
         if (len == 4 && strncmp(start, "true", len) == 0)
             return make_token(TOKEN_TRUE, start, len, lexer->line, column);
         if (len == 5 && strncmp(start, "false", len) == 0)

@@ -1,0 +1,27 @@
+from time import time, sleep
+
+async fun wait(delay):
+    sleep(delay)
+    return delay
+
+async fun wrap(value):
+    return Promise.resolve(value)
+
+start = time()
+promise = wait(2)
+pr(time() - start < 2)
+
+value = await promise
+pr(value == 2)
+pr(time() - start >= 2)
+
+after = time()
+again = await promise
+pr(time() - after < 2)
+pr(again == 2)
+
+pr(await Promise.resolve(5) == 5)
+pr(await 7 == 7)
+pr(await Promise.resolve(Promise.resolve(9)) == 9)
+pr(await Promise.resolve(promise) == 2)
+pr(await wrap(3) == 3)

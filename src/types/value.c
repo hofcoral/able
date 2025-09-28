@@ -8,6 +8,7 @@
 #include "types/function.h"
 #include "types/list.h"
 #include "types/instance.h"
+#include "types/promise.h"
 
 static const char *TYPE_NAMES[VAL_TYPE_COUNT] = {
     "UNDEFINED",
@@ -20,7 +21,8 @@ static const char *TYPE_NAMES[VAL_TYPE_COUNT] = {
     "LIST",
     "TYPE",
     "INSTANCE",
-    "BOUND_METHOD"
+    "BOUND_METHOD",
+    "PROMISE"
 };
 
 const char *value_type_name(ValueType type)
@@ -53,6 +55,9 @@ void free_value(Value v)
         break;
     case VAL_BOUND_METHOD:
         free(v.bound);
+        break;
+    case VAL_PROMISE:
+        promise_release(v.promise);
         break;
     case VAL_BOOL:
         break;
@@ -100,6 +105,10 @@ Value clone_value(const Value *src)
         } else {
             copy.bound = NULL;
         }
+        break;
+    case VAL_PROMISE:
+        copy.promise = src->promise;
+        promise_retain(copy.promise);
         break;
     case VAL_BOOL:
         copy.boolean = src->boolean;
@@ -195,6 +204,28 @@ void print_value(Value v, int indent)
         printf("]");
         break;
 
+    case VAL_PROMISE:
+    {
+        if (!v.promise)
+        {
+            printf("<promise: null>");
+            break;
+        }
+        PromiseState state = promise_state(v.promise);
+        switch (state)
+        {
+        case PROMISE_PENDING:
+            printf("<promise pending>");
+            break;
+        case PROMISE_FULFILLED:
+            printf("<promise fulfilled>");
+            break;
+        case PROMISE_REJECTED:
+            printf("<promise rejected>");
+            break;
+        }
+        break;
+    }
     default:
         printf("undefined");
         break;
