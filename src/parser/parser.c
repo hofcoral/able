@@ -38,6 +38,24 @@ static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int 
 static ASTNode *parse_class_def();
 static ASTNode *parse_argument();
 
+static bool is_identifier_like(TokenType type)
+{
+    switch (type)
+    {
+    case TOKEN_IDENTIFIER:
+    case TOKEN_GET:
+    case TOKEN_POST:
+    case TOKEN_PUT:
+    case TOKEN_PATCH:
+    case TOKEN_DELETE:
+    case TOKEN_HEAD:
+    case TOKEN_OPTIONS:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static void advance_token() {
     prev_line = current.line;
     prev_col = current.column;
@@ -66,7 +84,7 @@ static void expect(TokenType type, const char *msg)
 /* --- parsing functions --- */
 static ASTNode *parse_identifier_chain()
 {
-    if (current.type != TOKEN_IDENTIFIER)
+    if (!is_identifier_like(current.type))
     {
         log_script_error(current.line, current.column, "Expected identifier");
         exit(1);
@@ -86,7 +104,7 @@ static ASTNode *parse_identifier_chain()
 
     do
     {
-        if (current.type != TOKEN_IDENTIFIER)
+        if (!is_identifier_like(current.type))
         {
             log_script_error(current.line, current.column, "Expected attribute name after '.'");
             exit(1);
@@ -600,7 +618,7 @@ static ASTNode *parse_primary()
     }
     if (match(TOKEN_FUN))
         return parse_function_literal_node(NULL, prev_line, prev_col, false);
-    if (current.type == TOKEN_IDENTIFIER)
+    if (is_identifier_like(current.type))
     {
         ASTNode *node = parse_identifier_chain();
         if (current.type == TOKEN_LPAREN)
@@ -708,7 +726,7 @@ static ASTNode *parse_object_literal()
 
     while (current.type != TOKEN_RBRACE)
     {
-        while (current.type == TOKEN_NEWLINE)
+        while (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT || current.type == TOKEN_DEDENT)
             advance_token();
 
         if (count == cap)
@@ -718,12 +736,13 @@ static ASTNode *parse_object_literal()
             vals = realloc(vals, sizeof(ASTNode *) * cap);
         }
 
-        if (current.type != TOKEN_IDENTIFIER)
+        if (!is_identifier_like(current.type) && current.type != TOKEN_STRING)
         {
             log_script_error(current.line, current.column, "Expected key in object");
             exit(1);
         }
 
+        TokenType key_type = current.type;
         char *key = strdup(current.value);
         int key_line = current.line;
         int key_col = current.column;
@@ -736,6 +755,11 @@ static ASTNode *parse_object_literal()
         }
         else
         {
+            if (key_type != TOKEN_IDENTIFIER)
+            {
+                log_script_error(key_line, key_col, "String keys require ':' and a value");
+                exit(1);
+            }
             val_node = new_var_node(strdup(key), key_line, key_col);
         }
 
@@ -750,6 +774,9 @@ static ASTNode *parse_object_literal()
             break;
         }
     }
+
+    while (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT || current.type == TOKEN_DEDENT)
+        advance_token();
 
     expect(TOKEN_RBRACE, "'}'");
 
