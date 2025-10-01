@@ -1,0 +1,46 @@
+from server.annotations import route, get, post, use, get_base_path, get_routes, get_middleware, is_middleware
+
+@middleware
+fun require_auth(handler):
+    return handler
+
+@middleware
+fun logger(handler):
+    return handler
+
+@route("/api")
+@use(require_auth)
+class Controller():
+    @get
+    fun index(this):
+        return null
+
+    @post("/items")
+    @use(logger)
+    fun create(this):
+        return null
+
+pr(get_base_path(Controller))
+
+routes = get_routes(Controller.index)
+pr(len(routes))
+for route of routes:
+    pr(route.verb, ":", route.path)
+
+create_routes = get_routes(Controller.create)
+pr(len(create_routes))
+for route of create_routes:
+    pr(route.verb, ":", route.path)
+
+controller_middleware = get_middleware(Controller)
+pr(len(controller_middleware))
+for entry of controller_middleware:
+    pr(is_middleware(entry))
+
+create_middleware = get_middleware(Controller.create)
+pr(len(create_middleware))
+for entry of create_middleware:
+    pr(is_middleware(entry))
+
+pr(is_middleware(require_auth))
+pr(is_middleware(Controller.index))

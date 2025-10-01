@@ -1,0 +1,216 @@
+fun _is_decoratable(value):
+    t = type(value)
+    return t == "FUNCTION" or t == "TYPE"
+
+fun _clone_list(items):
+    cloned = []
+    if type(items) == "LIST":
+        for entry of items:
+            cloned.append(entry)
+    return cloned
+
+fun _ensure_meta(target):
+    meta = target.__abl_server_meta__
+    if type(meta) == "UNDEFINED" or meta == null:
+        meta = {}
+    meta.routes = _clone_list(meta.routes)
+    meta.middleware = _clone_list(meta.middleware)
+    target.__abl_server_meta__ = meta
+    return meta
+
+fun _normalize_path(path):
+    if path == null:
+        return "/"
+    if type(path) == "STRING":
+        normalized = path
+    else:
+        normalized = str(path)
+    if normalized == "":
+        return "/"
+    return normalized
+
+fun _append_route(target, verb, path):
+    meta = _ensure_meta(target)
+    routes = _clone_list(meta.routes)
+    routes.append({ "verb": verb, "path": path })
+    meta.routes = routes
+    target.__abl_server_meta__ = meta
+    return target
+
+fun _collect_middleware_entry(arg):
+    collected = []
+    if arg == null:
+        return collected
+    entry_type = type(arg)
+    if entry_type == "LIST":
+        for item of arg:
+            if item == null:
+                continue
+            exists = false
+            for current of collected:
+                if current == item:
+                    exists = true
+                    break
+            if exists:
+                continue
+            collected.append(item)
+    else:
+        collected.append(arg)
+    return collected
+
+fun _add_middleware(target, entries):
+    meta = _ensure_meta(target)
+    current = meta.middleware
+    updated = _clone_list(current)
+    for entry of entries:
+        if entry == null:
+            continue
+        exists = false
+        for present of updated:
+            if present == entry:
+                exists = true
+                break
+        if exists:
+            continue
+        updated.append(entry)
+    meta.middleware = updated
+    target.__abl_server_meta__ = meta
+    return target
+
+fun _get_meta(target):
+    meta = target.__abl_server_meta__
+    if type(meta) == "UNDEFINED":
+        return null
+    if meta == null:
+        return null
+    return meta
+
+fun _has_middleware_flag(target):
+    meta = _get_meta(target)
+    if meta == null:
+        return false
+    flag = meta.is_middleware
+    if type(flag) == "BOOLEAN":
+        return flag
+    return false
+
+fun route(arg):
+    if _is_decoratable(arg):
+        meta = _ensure_meta(arg)
+        meta.base_path = "/"
+        arg.__abl_server_meta__ = meta
+        return arg
+
+    base_path = _normalize_path(arg)
+
+    fun decorate(target):
+        meta = _ensure_meta(target)
+        meta.base_path = base_path
+        target.__abl_server_meta__ = meta
+        return target
+
+    return decorate
+
+fun _http_route(arg, verb):
+    if _is_decoratable(arg):
+        return _append_route(arg, verb, "/")
+
+    path = _normalize_path(arg)
+
+    fun decorate(target):
+        return _append_route(target, verb, path)
+
+    return decorate
+
+fun get(arg):
+    return _http_route(arg, "GET")
+
+fun post(arg):
+    return _http_route(arg, "POST")
+
+fun put(arg):
+    return _http_route(arg, "PUT")
+
+fun patch(arg):
+    return _http_route(arg, "PATCH")
+
+fun delete(arg):
+    return _http_route(arg, "DELETE")
+
+fun options(arg):
+    return _http_route(arg, "OPTIONS")
+
+fun head(arg):
+    return _http_route(arg, "HEAD")
+
+fun use(arg):
+    if _is_decoratable(arg) and not _has_middleware_flag(arg):
+        return _add_middleware(arg, [])
+
+    entries = _collect_middleware_entry(arg)
+
+    fun decorate(target):
+        return _add_middleware(target, entries)
+
+    return decorate
+
+fun _middleware_modifier(target, info):
+    if not _is_decoratable(target):
+        return null
+    meta = _ensure_meta(target)
+    meta.is_middleware = true
+    name = info.name
+    if type(name) == "STRING":
+        meta.name = name
+    target.__abl_server_meta__ = meta
+    return null
+
+fun _use_modifier(target, info):
+    if not _is_decoratable(target):
+        return null
+    _ensure_meta(target)
+    return null
+
+register_decorator("route", route)
+register_modifier("middleware", _middleware_modifier)
+register_modifier("use", _use_modifier)
+
+register_decorator("get", get)
+register_decorator("post", post)
+register_decorator("put", put)
+register_decorator("patch", patch)
+register_decorator("delete", delete)
+register_decorator("options", options)
+register_decorator("head", head)
+
+register_decorator("use", use)
+
+fun is_middleware(target):
+    meta = _get_meta(target)
+    if meta == null:
+        return false
+    flag = meta.is_middleware
+    if type(flag) == "BOOLEAN":
+        return flag
+    return false
+
+fun get_base_path(target):
+    meta = _get_meta(target)
+    if meta == null:
+        return null
+    base = meta.base_path
+    if type(base) == "UNDEFINED" or base == null:
+        return null
+    return base
+
+fun get_routes(target):
+    meta = _get_meta(target)
+    if meta == null:
+        return []
+    return _clone_list(meta.routes)
+
+fun get_middleware(target):
+    meta = _get_meta(target)
+    if meta == null:
+        return []
+    return _clone_list(meta.middleware)
