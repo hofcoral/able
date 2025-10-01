@@ -17,6 +17,7 @@ SRCS = \
     $(SRC_DIR)/types/instance.c \
     $(SRC_DIR)/types/list.c \
     $(SRC_DIR)/types/env.c \
+    $(SRC_DIR)/interpreter/call.c \
     $(SRC_DIR)/interpreter/interpreter.c \
     $(SRC_DIR)/interpreter/annotations.c \
     $(SRC_DIR)/interpreter/module.c \
