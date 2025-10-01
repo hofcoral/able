@@ -6,6 +6,7 @@
 #include "types/value.h"
 #include "lexer/lexer.h"
 #include "types/function.h"
+#include "types/object.h"
 #include "types/list.h"
 #include "ast/ast.h"
 #include "utils/utils.h"
@@ -34,8 +35,8 @@ static ASTNode *parse_import_module_stmt();
 static ASTNode *parse_from_import_stmt();
 static ASTNode *parse_list_literal();
 static ASTNode *parse_object_literal();
-static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int line, int col);
-static ASTNode *parse_class_def();
+static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int line, int col, Annotation **annotations, int annotation_count);
+static ASTNode *parse_class_def(Annotation **annotations, int annotation_count);
 static ASTNode *parse_argument();
 
 static bool is_identifier_like(TokenType type)
@@ -70,6 +71,86 @@ static int match(TokenType type)
         return 1;
     }
     return 0;
+}
+
+static void expect(TokenType type, const char *msg);
+
+static Annotation *parse_annotation_entry()
+{
+    if (current.type != TOKEN_ANNOTATION)
+        return NULL;
+
+    Annotation *ann = malloc(sizeof(Annotation));
+    ann->name = strdup(current.value);
+    ann->line = current.line;
+    ann->column = current.column;
+    ann->args = NULL;
+    ann->arg_count = 0;
+    ann->is_call = false;
+
+    advance_token();
+
+    if (match(TOKEN_LPAREN))
+    {
+        ann->is_call = true;
+        int cap = 0;
+        if (current.type != TOKEN_RPAREN)
+        {
+            cap = 4;
+            ann->args = malloc(sizeof(ASTNode *) * cap);
+            while (1)
+            {
+                ASTNode *arg = parse_expression();
+                if (ann->arg_count == cap)
+                {
+                    cap *= 2;
+                    ann->args = realloc(ann->args, sizeof(ASTNode *) * cap);
+                }
+                ann->args[ann->arg_count++] = arg;
+                if (!match(TOKEN_COMMA))
+                    break;
+            }
+        }
+        expect(TOKEN_RPAREN, "')'");
+    }
+
+    return ann;
+}
+
+static void collect_annotations(Annotation ***out, int *out_count)
+{
+    Annotation **list = NULL;
+    int count = 0;
+    int cap = 0;
+
+    while (current.type == TOKEN_ANNOTATION)
+    {
+        Annotation *ann = parse_annotation_entry();
+        if (!ann)
+            break;
+        if (count == cap)
+        {
+            cap = cap > 0 ? cap * 2 : 4;
+            list = realloc(list, sizeof(Annotation *) * cap);
+        }
+        list[count++] = ann;
+
+        while (current.type == TOKEN_NEWLINE)
+            advance_token();
+    }
+
+    *out = list;
+    *out_count = count;
+}
+
+static bool annotations_contain(Annotation **annotations, int count, const char *name)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        if (!annotations[i]->is_call && strcmp(annotations[i]->name, name) == 0)
+            return true;
+    }
+    return false;
 }
 
 static void expect(TokenType type, const char *msg)
@@ -248,6 +329,7 @@ static Function *build_function(char **params, int param_count, ASTNode **body, 
     fn->body = body;
     fn->body_count = body_count;
     fn->env = NULL;
+    fn->attributes = object_create();
     fn->bind_on_access = false;
     fn->is_async = is_async;
     return fn;
@@ -317,7 +399,7 @@ static ASTNode *parse_assignment(ASTNode *dest)
     add_child(assign, expr);
     return assign;
 }
-static ASTNode *parse_class_def()
+static ASTNode *parse_class_def(Annotation **leading_annotations, int leading_count)
 {
     int line = prev_line;
     int col = prev_col;
@@ -360,6 +442,8 @@ static ASTNode *parse_class_def()
     cls->data.cls.class_name = name;
     cls->data.cls.base_names = bases;
     cls->data.cls.base_count = count;
+    cls->annotations = leading_annotations;
+    cls->annotation_count = leading_count;
 
     if (!match(TOKEN_NEWLINE))
     {
@@ -367,7 +451,6 @@ static ASTNode *parse_class_def()
         exit(1);
     }
     expect(TOKEN_INDENT, "indent");
-    bool static_flag = false;
     while (current.type != TOKEN_DEDENT && current.type != TOKEN_EOF)
     {
         if (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT)
@@ -375,11 +458,16 @@ static ASTNode *parse_class_def()
             advance_token();
             continue;
         }
-        if (match(TOKEN_AT_STATIC))
+
+        Annotation **method_annotations = NULL;
+        int method_annotation_count = 0;
+        collect_annotations(&method_annotations, &method_annotation_count);
+        if (method_annotation_count > 0 && current.type != TOKEN_ASYNC && current.type != TOKEN_FUN)
         {
-            static_flag = true;
-            continue;
+            log_script_error(current.line, current.column, "Expected method definition after annotations");
+            exit(1);
         }
+
         bool method_async = false;
         if (match(TOKEN_ASYNC))
         {
@@ -402,9 +490,9 @@ static ASTNode *parse_class_def()
         }
         char *mname = strdup(current.value);
         advance_token();
-        ASTNode *m = parse_method_def(mname, static_flag, method_async, fun_line, fun_col);
+        bool is_static = annotations_contain(method_annotations, method_annotation_count, "static");
+        ASTNode *m = parse_method_def(mname, is_static, method_async, fun_line, fun_col, method_annotations, method_annotation_count);
         add_child(cls, m);
-        static_flag = false;
         continue;
 
         log_script_error(current.line, current.column, "Unexpected token in class body");
@@ -414,7 +502,7 @@ static ASTNode *parse_class_def()
     return cls;
 }
 
-static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int line, int col)
+static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int line, int col, Annotation **annotations, int annotation_count)
 {
     char **params;
     int param_count;
@@ -430,6 +518,8 @@ static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int 
     m->children = body;
     m->child_count = body_count;
     m->is_static = is_static;
+    m->annotations = annotations;
+    m->annotation_count = annotation_count;
     return m;
 }
 
@@ -1055,43 +1145,107 @@ static ASTNode *parse_statement()
 {
     while (current.type == TOKEN_NEWLINE)
         advance_token();
-    bool private_flag = false;
-    if (match(TOKEN_AT_PRIVATE))
-    {
-        private_flag = true;
-        while (current.type == TOKEN_NEWLINE)
-            advance_token();
-    }
+    Annotation **annotations = NULL;
+    int annotation_count = 0;
+    collect_annotations(&annotations, &annotation_count);
+    bool private_flag = annotations_contain(annotations, annotation_count, "private");
+
     if (match(TOKEN_ASYNC))
     {
         expect(TOKEN_FUN, "'fun'");
-        return parse_fun_declaration(private_flag, true);
+        ASTNode *node = parse_fun_declaration(private_flag, true);
+        node->annotations = annotations;
+        node->annotation_count = annotation_count;
+        return node;
     }
     if (match(TOKEN_FUN))
-        return parse_fun_declaration(private_flag, false);
+    {
+        ASTNode *node = parse_fun_declaration(private_flag, false);
+        node->annotations = annotations;
+        node->annotation_count = annotation_count;
+        return node;
+    }
+
+    if (match(TOKEN_CLASS))
+        return parse_class_def(annotations, annotation_count);
+
     if (private_flag && current.type != TOKEN_IDENTIFIER)
     {
         log_script_error(current.line, current.column, "Expected assignment after @private");
         exit(1);
     }
     if (match(TOKEN_RETURN))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_return_stmt();
+    }
     if (match(TOKEN_FOR))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_for_stmt();
+    }
     if (match(TOKEN_WHILE))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_while_stmt();
+    }
     if (match(TOKEN_BREAK))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_break_stmt();
+    }
     if (match(TOKEN_CONTINUE))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_continue_stmt();
+    }
     if (match(TOKEN_IMPORT))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_import_module_stmt();
+    }
     if (match(TOKEN_FROM))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_from_import_stmt();
+    }
     if (match(TOKEN_IF))
+    {
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
+            exit(1);
+        }
         return parse_if_stmt();
-    if (match(TOKEN_CLASS))
-        return parse_class_def();
+    }
     if (current.type == TOKEN_IDENTIFIER)
     {
         ASTNode *id = parse_identifier_chain();
@@ -1100,11 +1254,18 @@ static ASTNode *parse_statement()
             ASTNode *n = parse_assignment(id);
             if (private_flag)
                 n->is_private = true;
+            n->annotations = annotations;
+            n->annotation_count = annotation_count;
             return n;
         }
         if (private_flag)
         {
             log_script_error(current.line, current.column, "Expected '=' after @private target");
+            exit(1);
+        }
+        if (annotation_count > 0)
+        {
+            log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
             exit(1);
         }
         if (current.type == TOKEN_LPAREN)
@@ -1114,6 +1275,12 @@ static ASTNode *parse_statement()
 
         log_script_error(current.line, current.column,
                          "Parse error: unexpected token '%s'", current.value);
+        exit(1);
+    }
+
+    if (annotation_count > 0)
+    {
+        log_script_error(current.line, current.column, "Annotations require a function, class, or assignment target");
         exit(1);
     }
 

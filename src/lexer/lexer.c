@@ -276,15 +276,15 @@ Token next_token(Lexer *lexer)
 
     if (c == '@')
     {
+        if (!isalpha(peek(lexer)) && peek(lexer) != '_')
+            return make_token(TOKEN_UNKNOWN, "@", 1, lexer->line, column);
+
         const char *start = &lexer->source[lexer->pos];
-        while (isalnum(peek(lexer)))
+        while (isalnum(peek(lexer)) || peek(lexer) == '_')
             advance(lexer);
+
         size_t len = &lexer->source[lexer->pos] - start;
-        if (len == 6 && strncmp(start, "static", len) == 0)
-            return make_token(TOKEN_AT_STATIC, &lexer->source[start_pos], len + 1, lexer->line, column);
-        if (len == 7 && strncmp(start, "private", len) == 0)
-            return make_token(TOKEN_AT_PRIVATE, &lexer->source[start_pos], len + 1, lexer->line, column);
-        return make_token(TOKEN_UNKNOWN, "@", 1, lexer->line, column);
+        return make_token(TOKEN_ANNOTATION, start, len, lexer->line, column);
     }
 
     // Strings

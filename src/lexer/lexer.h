@@ -67,8 +67,7 @@ typedef enum
     TOKEN_NEWLINE,
     TOKEN_INDENT,
     TOKEN_DEDENT,
-    TOKEN_AT_STATIC,
-    TOKEN_AT_PRIVATE,
+    TOKEN_ANNOTATION,
     TOKEN_UNKNOWN
 } TokenType;
 

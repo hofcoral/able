@@ -11,6 +11,8 @@ ASTNode *new_node(NodeType type, int line, int column)
     n->column = column;
     n->is_static = false;
     n->is_private = false;
+    n->annotations = NULL;
+    n->annotation_count = 0;
     return n;
 }
 
@@ -178,6 +180,19 @@ static void free_node(ASTNode *n)
         free(n->data.object.keys);
         free(n->data.object.values);
     }
+
+    for (int i = 0; i < n->annotation_count; ++i)
+    {
+        Annotation *ann = n->annotations[i];
+        if (!ann)
+            continue;
+        free(ann->name);
+        for (int j = 0; j < ann->arg_count; ++j)
+            free_node(ann->args[j]);
+        free(ann->args);
+        free(ann);
+    }
+    free(n->annotations);
 
     // Free any children (used for all types with nested structure)
     for (int i = 0; i < n->child_count; ++i)

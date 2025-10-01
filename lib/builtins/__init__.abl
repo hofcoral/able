@@ -1,1 +1,10 @@
 from "builtins/math" import abs, min, max
+
+fun _static_modifier(target, info):
+    target.static = true
+
+fun _private_modifier(target, info):
+    return { assign_private: true }
+
+register_modifier("static", _static_modifier)
+register_modifier("private", _private_modifier)

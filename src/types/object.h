@@ -19,6 +19,7 @@ typedef struct Object
 } Object;
 
 // ————— FUNCTIONS ————— //
+Object *object_create(void);
 Object *clone_object(const Object *src);
 void free_object(Object *obj);
 Value object_get(Object *obj, const char *key);           // Optional helper
