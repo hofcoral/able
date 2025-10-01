@@ -22,6 +22,7 @@
 #include "interpreter/server.h"
 #include "interpreter/annotations.h"
 #include "utils/utils.h"
+#include "utils/json.h"
 #include "types/type_registry.h"
 
 CallStack call_stack;
@@ -695,6 +696,89 @@ static Value exec_func_call(ASTNode *n)
             log_script_error(n->line, n->column, "str() unsupported type");
             exit(1);
         }
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "json_stringify") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "json_stringify() expects exactly one argument");
+            exit(1);
+        }
+
+        Value arg = eval_node(n->children[0]);
+        char *json = NULL;
+        char *error = NULL;
+        if (!json_stringify_value(&arg, &json, &error))
+        {
+            if (error)
+            {
+                log_script_error(n->line, n->column, "json_stringify failed: %s", error);
+                free(error);
+            }
+            else
+            {
+                log_script_error(n->line, n->column, "json_stringify failed");
+            }
+            exit(1);
+        }
+
+        Value res = {.type = VAL_STRING, .str = json};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "json_parse") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "json_parse() expects exactly one argument");
+            exit(1);
+        }
+
+        Value arg = eval_node(n->children[0]);
+        if (arg.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "json_parse() expects a string argument");
+            exit(1);
+        }
+
+        Value parsed = {.type = VAL_NULL};
+        char *error = NULL;
+        if (!json_parse_string(arg.str, &parsed, &error))
+        {
+            if (error)
+            {
+                log_script_error(n->line, n->column, "json_parse failed: %s", error);
+                free(error);
+            }
+            else
+            {
+                log_script_error(n->line, n->column, "json_parse failed");
+            }
+            exit(1);
+        }
+
+        return parsed;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "read_text_file") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "read_text_file() expects exactly one argument");
+            exit(1);
+        }
+
+        Value path = eval_node(n->children[0]);
+        if (path.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "read_text_file() expects a string path");
+            exit(1);
+        }
+
+        char *content = read_file(path.str);
+        Value res = {.type = VAL_STRING, .str = content};
+        return res;
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "dict") == 0)

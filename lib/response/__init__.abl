@@ -1,0 +1,45 @@
+fun _merge_headers(defaults, overrides):
+    merged = dict(defaults)
+    if overrides != null:
+        extra = dict(overrides)
+        for key of extra:
+            merged[key] = extra[key]
+    return merged
+
+fun _ensure_string(value):
+    return value if type(value) == "STRING" else str(value)
+
+fun JSON(data, status = 200, headers = null):
+    body = json_stringify(data)
+    defaults = { "Content-Type": "application/json; charset=utf-8" }
+    return {
+        status: status,
+        headers: _merge_headers(defaults, headers),
+        body: body
+    }
+
+fun HTML(content, status = 200, headers = null):
+    body = _ensure_string(content)
+    defaults = { "Content-Type": "text/html; charset=utf-8" }
+    return {
+        status: status,
+        headers: _merge_headers(defaults, headers),
+        body: body
+    }
+
+fun File(path, status = 200, headers = null):
+    body = read_text_file(path)
+    defaults = { "Content-Type": "application/octet-stream" }
+    return {
+        status: status,
+        headers: _merge_headers(defaults, headers),
+        body: body
+    }
+
+fun Custom(body, status = 200, headers = null):
+    defaults = {}
+    return {
+        status: status,
+        headers: _merge_headers(defaults, headers),
+        body: _ensure_string(body)
+    }
