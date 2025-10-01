@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 import unittest
@@ -12,5 +13,7 @@ class AbleTestCase(unittest.TestCase):
             raise RuntimeError('Executable not built')
 
     def run_script(self, path: str) -> str:
-        result = subprocess.run([str(EXE), path], check=True, capture_output=True, text=True)
+        env = os.environ.copy()
+        env.setdefault('ABLE_HTTP_FIXTURES', '1')
+        result = subprocess.run([str(EXE), path], check=True, capture_output=True, text=True, env=env)
         return result.stdout

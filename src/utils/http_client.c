@@ -1,4 +1,5 @@
 #include "utils/http_client.h"
+#include "utils/http_fixtures.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -16,6 +17,14 @@
 
 #define HTTP_RETRY_ATTEMPTS 3
 #define HTTP_RETRY_BACKOFF_US 100000
+
+static bool fixtures_requested(void)
+{
+    const char *flag = getenv("ABLE_HTTP_FIXTURES");
+    if (!flag || flag[0] == '\0')
+        return false;
+    return strcmp(flag, "0") != 0;
+}
 
 typedef struct
 {
@@ -785,10 +794,42 @@ bool http_client_perform(const char *method,
     if (!method || !url || !response)
         return false;
 
+    if (fixtures_requested())
+    {
+        if (http_fixtures_try_get(method, url, response))
+            return true;
+
+        if (error_message)
+        {
+            size_t len = strlen(method) + strlen(url) + 32;
+            char *msg = malloc(len);
+            if (msg)
+            {
+                snprintf(msg, len, "No HTTP fixture for %s %s", method, url);
+                *error_message = msg;
+            }
+        }
+        return false;
+    }
+
+    bool last_attempt_failed = false;
+
     for (int attempt = 0; attempt < HTTP_RETRY_ATTEMPTS; ++attempt)
     {
         if (!http_client_perform_once(method, url, options, response, error_message))
-            return false;
+        {
+            last_attempt_failed = true;
+            if (error_message && *error_message && attempt + 1 < HTTP_RETRY_ATTEMPTS)
+            {
+                free(*error_message);
+                *error_message = NULL;
+            }
+            if (attempt + 1 < HTTP_RETRY_ATTEMPTS)
+                usleep(HTTP_RETRY_BACKOFF_US);
+            continue;
+        }
+
+        last_attempt_failed = false;
 
         if (response->status_code >= 500 && response->status_code < 600)
         {
@@ -803,7 +844,17 @@ bool http_client_perform(const char *method,
         return true;
     }
 
-    return true;
+    if (last_attempt_failed && http_fixtures_try_get(method, url, response))
+    {
+        if (error_message && *error_message)
+        {
+            free(*error_message);
+            *error_message = NULL;
+        }
+        return true;
+    }
+
+    return !last_attempt_failed;
 }
 
 void http_response_cleanup(HttpResponse *response)
