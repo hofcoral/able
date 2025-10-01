@@ -9,7 +9,8 @@
 void builtins_register(Env *global_env, const char *file_path)
 {
     const char *funcs[] = {"pr", "input", "type", "len", "bool", "int", "float",
-                            "str", "list", "dict", "range", "register_modifier", "register_decorator"};
+                            "str", "list", "dict", "range", "register_modifier", "register_decorator",
+                            "server_listen"};
     Value undef = {.type = VAL_UNDEFINED};
     for (size_t i = 0; i < sizeof(funcs) / sizeof(funcs[0]); ++i)
         set_variable(global_env, funcs[i], undef);

@@ -22,11 +22,13 @@ SRCS = \
     $(SRC_DIR)/interpreter/annotations.c \
     $(SRC_DIR)/interpreter/module.c \
     $(SRC_DIR)/interpreter/builtins.c \
+    $(SRC_DIR)/interpreter/server.c \
     $(SRC_DIR)/interpreter/network.c \
     $(SRC_DIR)/interpreter/stack.c \
     $(SRC_DIR)/interpreter/resolve.c \
     $(SRC_DIR)/interpreter/attr.c \
     $(SRC_DIR)/utils/http_client.c \
+    $(SRC_DIR)/utils/http_server.c \
     $(SRC_DIR)/utils/utils.c
 
 OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
