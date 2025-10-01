@@ -14,6 +14,7 @@
 #include "types/value.h"
 #include "utils/http_server.h"
 #include "utils/utils.h"
+#include "utils/json.h"
 
 typedef struct
 {
@@ -93,6 +94,95 @@ static char *value_to_owned_string(const Value *value, int line, int column, con
     }
 
     return NULL;
+}
+
+static Value *find_field(Object *obj, const char *name)
+{
+    if (!obj || !name)
+        return NULL;
+    for (int i = 0; i < obj->count; ++i)
+    {
+        if (strcmp(obj->pairs[i].key, name) == 0)
+            return &obj->pairs[i].value;
+    }
+    return NULL;
+}
+
+static Object *response_headers_object(Object *obj)
+{
+    Value *headers = find_field(obj, "headers");
+    if (!headers || headers->type != VAL_OBJECT)
+        return NULL;
+    return headers->obj;
+}
+
+static bool headers_contains(const Object *headers_obj, const char *name)
+{
+    if (!headers_obj || !name)
+        return false;
+    for (int i = 0; i < headers_obj->count; ++i)
+    {
+        if (strcasecmp(headers_obj->pairs[i].key, name) == 0)
+            return true;
+    }
+    return false;
+}
+
+static bool ensure_json_content_type(Object *response)
+{
+    Object *headers_obj = response_headers_object(response);
+    if (!headers_obj)
+        return false;
+    if (headers_contains(headers_obj, "Content-Type"))
+        return true;
+
+    Value header_val = {.type = VAL_STRING, .str = strdup("application/json; charset=utf-8")};
+    if (!header_val.str)
+        return false;
+    object_set(headers_obj, "Content-Type", header_val);
+    free_value(header_val);
+    return true;
+}
+
+static bool has_response_metadata(const Object *obj)
+{
+    if (!obj)
+        return false;
+    for (int i = 0; i < obj->count; ++i)
+    {
+        const char *key = obj->pairs[i].key;
+        if (strcmp(key, "status") == 0 || strcmp(key, "statusText") == 0 ||
+            strcmp(key, "headers") == 0 || strcmp(key, "body") == 0)
+            return true;
+    }
+    return false;
+}
+
+static bool set_plain_body(Object *response_obj, const Value *source, const ServerContext *ctx, const char *field)
+{
+    char *body = value_to_owned_string(source, ctx->call_line, ctx->call_column, field);
+    Value body_val = {.type = VAL_STRING, .str = body};
+    object_set(response_obj, "body", body_val);
+    free_value(body_val);
+    return true;
+}
+
+static bool set_json_body(Object *response_obj, const Value *payload, const ServerContext *ctx)
+{
+    char *json = NULL;
+    char *error = NULL;
+    if (!json_stringify_value(payload, &json, &error))
+    {
+        if (error)
+            fatal_script_error(ctx->call_line, ctx->call_column, "Failed to serialize JSON response: %s", error);
+        fatal_script_error(ctx->call_line, ctx->call_column, "Failed to serialize JSON response");
+    }
+
+    Value body_val = {.type = VAL_STRING, .str = json};
+    object_set(response_obj, "body", body_val);
+    free_value(body_val);
+
+    return ensure_json_content_type(response_obj);
 }
 
 static void ensure_route_handler_type(const Value *handler, int line, int column)
@@ -237,6 +327,136 @@ static bool apply_header_object(Object *headers_obj, HttpServerResponse *respons
     return true;
 }
 
+static bool normalize_response_value(const Value *result, Value *normalized, const ServerContext *ctx)
+{
+    Object *response_obj = object_create();
+    if (!response_obj)
+        return false;
+
+    Value status_default = {.type = VAL_NUMBER, .num = 200};
+    object_set(response_obj, "status", status_default);
+
+    Object *headers_default = object_create();
+    if (!headers_default)
+    {
+        free_object(response_obj);
+        return false;
+    }
+    Value headers_val = {.type = VAL_OBJECT, .obj = headers_default};
+    object_set(response_obj, "headers", headers_val);
+    free_value(headers_val);
+
+    if (!result || result->type == VAL_UNDEFINED || result->type == VAL_NULL)
+    {
+        normalized->type = VAL_OBJECT;
+        normalized->obj = response_obj;
+        return true;
+    }
+
+    switch (result->type)
+    {
+    case VAL_OBJECT:
+    {
+        if (!has_response_metadata(result->obj))
+        {
+            if (!set_json_body(response_obj, result, ctx))
+            {
+                free_object(response_obj);
+                return false;
+            }
+            break;
+        }
+
+        Value *status_field = NULL;
+        Value *status_text_field = NULL;
+        Value *headers_field = NULL;
+        Value *body_field = NULL;
+
+        for (int i = 0; i < result->obj->count; ++i)
+        {
+            const char *key = result->obj->pairs[i].key;
+            if (strcmp(key, "status") == 0)
+                status_field = &result->obj->pairs[i].value;
+            else if (strcmp(key, "statusText") == 0)
+                status_text_field = &result->obj->pairs[i].value;
+            else if (strcmp(key, "headers") == 0)
+                headers_field = &result->obj->pairs[i].value;
+            else if (strcmp(key, "body") == 0)
+                body_field = &result->obj->pairs[i].value;
+        }
+
+        if (status_field)
+        {
+            if (status_field->type != VAL_NUMBER)
+                fatal_script_error(ctx->call_line, ctx->call_column, "response.status must be a number");
+            Value status_copy = {.type = VAL_NUMBER, .num = status_field->num};
+            object_set(response_obj, "status", status_copy);
+        }
+
+        if (status_text_field)
+        {
+            if (status_text_field->type != VAL_STRING)
+                fatal_script_error(ctx->call_line, ctx->call_column, "response.statusText must be a string");
+            const char *text = status_text_field->str ? status_text_field->str : "";
+            Value text_copy = {.type = VAL_STRING, .str = strdup(text)};
+            if (!text_copy.str)
+            {
+                free_object(response_obj);
+                return false;
+            }
+            object_set(response_obj, "statusText", text_copy);
+            free_value(text_copy);
+        }
+
+        if (headers_field)
+        {
+            if (headers_field->type != VAL_OBJECT)
+                fatal_script_error(ctx->call_line, ctx->call_column, "response.headers must be an object");
+            Value headers_copy = clone_value(headers_field);
+            object_set(response_obj, "headers", headers_copy);
+            free_value(headers_copy);
+        }
+
+        if (body_field && body_field->type != VAL_NULL && body_field->type != VAL_UNDEFINED)
+        {
+            if (!set_plain_body(response_obj, body_field, ctx, "response.body"))
+            {
+                free_object(response_obj);
+                return false;
+            }
+        }
+        break;
+    }
+    case VAL_LIST:
+        if (!set_json_body(response_obj, result, ctx))
+        {
+            free_object(response_obj);
+            return false;
+        }
+        break;
+    case VAL_STRING:
+    case VAL_NUMBER:
+    case VAL_BOOL:
+        if (!set_plain_body(response_obj, result, ctx, "response"))
+        {
+            free_object(response_obj);
+            return false;
+        }
+        break;
+    default:
+        if (!set_json_body(response_obj, result, ctx))
+        {
+            free_object(response_obj);
+            return false;
+        }
+        break;
+    }
+
+    normalized->type = VAL_OBJECT;
+    normalized->obj = response_obj;
+    return true;
+}
+
 static bool apply_response_object(const Value *result, HttpServerResponse *response, const ServerContext *ctx)
 {
     Object *obj = result->obj;
@@ -308,19 +528,16 @@ static bool apply_response_object(const Value *result, HttpServerResponse *respo
 
 static bool apply_response_value(const Value *result, HttpServerResponse *response, const ServerContext *ctx)
 {
-    if (!result)
-        return true;
-    if (result->type == VAL_UNDEFINED || result->type == VAL_NULL)
-        return true;
-    if (result->type == VAL_OBJECT)
-        return apply_response_object(result, response, ctx);
+    Value normalized = {.type = VAL_UNDEFINED};
+    if (!normalize_response_value(result, &normalized, ctx))
+    {
+        if (normalized.type != VAL_UNDEFINED)
+            free_value(normalized);
+        return false;
+    }
 
-    char *body = value_to_owned_string(result, ctx->call_line, ctx->call_column, "response");
-    size_t length = strlen(body);
-    bool ok = http_server_response_set_body(response, body, length);
-    if (ok)
-        ok = http_server_response_add_header(response, "Content-Type", "text/plain; charset=utf-8");
-    free(body);
+    bool ok = apply_response_object(&normalized, response, ctx);
+    free_value(normalized);
     return ok;
 }
 

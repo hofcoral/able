@@ -14,6 +14,9 @@
 #define STATUS_SENTINEL "\n__ABLE_HTTP_SENTINEL__STATUS:"
 #define URL_SENTINEL "\n__ABLE_HTTP_SENTINEL__URL:"
 
+#define HTTP_RETRY_ATTEMPTS 3
+#define HTTP_RETRY_BACKOFF_US 100000
+
 typedef struct
 {
     char **data;
@@ -549,6 +552,18 @@ static bool build_curl_command(const char *method,
     return true;
 }
 
+static void http_response_prepare(HttpResponse *response)
+{
+    if (!response)
+        return;
+    response->status_code = 0;
+    response->status_text = NULL;
+    response->final_url = NULL;
+    response->headers = NULL;
+    response->header_count = 0;
+    response->body = NULL;
+}
+
 static bool extract_curl_metadata(Buffer *body_buffer, HttpResponse *response, char **error_message)
 {
     char *url_marker = find_last(body_buffer->data, URL_SENTINEL);
@@ -610,23 +625,18 @@ static bool extract_curl_metadata(Buffer *body_buffer, HttpResponse *response, c
     return true;
 }
 
-bool http_client_perform(const char *method,
-                         const char *url,
-                         const HttpRequestOptions *options,
-                         HttpResponse *response,
-                         char **error_message)
+static bool http_client_perform_once(const char *method,
+                                     const char *url,
+                                     const HttpRequestOptions *options,
+                                     HttpResponse *response,
+                                     char **error_message)
 {
     if (error_message)
         *error_message = NULL;
     if (!method || !url || !response)
         return false;
 
-    response->status_code = 0;
-    response->status_text = NULL;
-    response->final_url = NULL;
-    response->headers = NULL;
-    response->header_count = 0;
-    response->body = NULL;
+    http_response_prepare(response);
 
     Buffer stdout_buffer;
     Buffer stderr_buffer;
@@ -764,10 +774,43 @@ cleanup:
     return false;
 }
 
+bool http_client_perform(const char *method,
+                         const char *url,
+                         const HttpRequestOptions *options,
+                         HttpResponse *response,
+                         char **error_message)
+{
+    if (error_message)
+        *error_message = NULL;
+    if (!method || !url || !response)
+        return false;
+
+    for (int attempt = 0; attempt < HTTP_RETRY_ATTEMPTS; ++attempt)
+    {
+        if (!http_client_perform_once(method, url, options, response, error_message))
+            return false;
+
+        if (response->status_code >= 500 && response->status_code < 600)
+        {
+            if (attempt + 1 >= HTTP_RETRY_ATTEMPTS)
+                return true;
+
+            http_response_cleanup(response);
+            usleep(HTTP_RETRY_BACKOFF_US);
+            continue;
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
 void http_response_cleanup(HttpResponse *response)
 {
     if (!response)
         return;
+    response->status_code = 0;
     free(response->status_text);
     response->status_text = NULL;
     free(response->final_url);
