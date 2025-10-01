@@ -1,0 +1,41 @@
+fun middleware_modifier(target, info):
+    target.is_middleware = true
+
+register_modifier("middleware", middleware_modifier)
+
+fun capture_modifier(target, info):
+    target.info = info.target_type
+
+register_modifier("capture", capture_modifier)
+
+fun label(prefix):
+    fun decorate(fn):
+        fun wrapper(name):
+            return prefix + ": " + fn(name)
+        return wrapper
+    return decorate
+
+register_decorator("label", label)
+
+@middleware
+@label("greeted")
+fun greet(name):
+    return "Hello " + name
+
+@capture
+fun show_context():
+    return show_context.info
+
+@private
+secret = "hidden"
+
+pr(greet("World"))
+pr(greet.is_middleware)
+pr(show_context())
+
+class Service():
+    @static
+    fun ping():
+        pr("pong")
+
+Service.ping()

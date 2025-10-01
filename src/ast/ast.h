@@ -55,6 +55,18 @@ typedef enum
     UNARY_NOT
 } UnaryOp;
 
+struct ASTNode;
+
+typedef struct Annotation
+{
+    char *name;
+    struct ASTNode **args;
+    int arg_count;
+    bool is_call;
+    int line;
+    int column;
+} Annotation;
+
 typedef struct ASTNode
 {
     NodeType type;
@@ -63,6 +75,8 @@ typedef struct ASTNode
     int line, column;
     struct ASTNode **children;
     int child_count;
+    Annotation **annotations;
+    int annotation_count;
     bool is_static;
     bool is_private;
 

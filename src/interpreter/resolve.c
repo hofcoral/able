@@ -12,7 +12,7 @@
 
 static int is_container(Value v)
 {
-    return v.type == VAL_OBJECT || v.type == VAL_INSTANCE || v.type == VAL_TYPE;
+    return v.type == VAL_OBJECT || v.type == VAL_INSTANCE || v.type == VAL_TYPE || v.type == VAL_FUNCTION;
 }
 
 Value resolve_attribute_chain(ASTNode *attr_node)

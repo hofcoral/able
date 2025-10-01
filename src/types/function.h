@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 struct Env;
+struct Object;
 
 typedef struct Function
 {
@@ -14,6 +15,7 @@ typedef struct Function
     ASTNode **body;
     int body_count;
     struct Env *env;
+    struct Object *attributes;
     bool bind_on_access;
     bool is_async;
 } Function;

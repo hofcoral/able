@@ -19,12 +19,21 @@
 #include "interpreter/stack.h"
 #include "interpreter/module.h"
 #include "interpreter/network.h"
+#include "interpreter/annotations.h"
 #include "utils/utils.h"
 #include "types/type_registry.h"
 
 static CallStack call_stack;
 static bool break_flag = false;
 static bool continue_flag = false;
+
+typedef enum
+{
+    ANNOTATION_TARGET_FUNCTION,
+    ANNOTATION_TARGET_METHOD,
+    ANNOTATION_TARGET_CLASS,
+    ANNOTATION_TARGET_ASSIGNMENT
+} AnnotationTargetType;
 
 static Value run_async_task(AsyncTask *task)
 {
@@ -307,10 +316,12 @@ void interpreter_init()
 {
     stack_init(&call_stack);
     type_registry_init();
+    annotations_init();
 }
 
 void interpreter_cleanup()
 {
+    annotations_cleanup();
     type_registry_cleanup();
     stack_free(&call_stack);
 }
@@ -669,6 +680,58 @@ static Value exec_func_call(ASTNode *n)
 
             return result;
         }
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "register_modifier") == 0)
+    {
+        if (n->child_count != 2)
+        {
+            log_script_error(n->line, n->column, "register_modifier expects name and handler");
+            exit(1);
+        }
+        Value name_val = eval_node(n->children[0]);
+        Value handler_val = eval_node(n->children[1]);
+        if (name_val.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "register_modifier expects string name");
+            exit(1);
+        }
+        if (handler_val.type != VAL_FUNCTION)
+        {
+            log_script_error(n->line, n->column, "register_modifier expects function handler");
+            exit(1);
+        }
+        annotations_register(name_val.str, ANNOTATION_HANDLER_MODIFIER, handler_val);
+        free_value(name_val);
+        free_value(handler_val);
+        Value undef = {.type = VAL_UNDEFINED};
+        return undef;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "register_decorator") == 0)
+    {
+        if (n->child_count != 2)
+        {
+            log_script_error(n->line, n->column, "register_decorator expects name and handler");
+            exit(1);
+        }
+        Value name_val = eval_node(n->children[0]);
+        Value handler_val = eval_node(n->children[1]);
+        if (name_val.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "register_decorator expects string name");
+            exit(1);
+        }
+        if (handler_val.type != VAL_FUNCTION)
+        {
+            log_script_error(n->line, n->column, "register_decorator expects function handler");
+            exit(1);
+        }
+        annotations_register(name_val.str, ANNOTATION_HANDLER_DECORATOR, handler_val);
+        free_value(name_val);
+        free_value(handler_val);
+        Value undef = {.type = VAL_UNDEFINED};
+        return undef;
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "pr") == 0)
@@ -1159,6 +1222,159 @@ static Value exec_func_call(ASTNode *n)
     return ret_val;
 }
 
+static const char *annotation_target_label(AnnotationTargetType type)
+{
+    switch (type)
+    {
+    case ANNOTATION_TARGET_FUNCTION:
+        return "function";
+    case ANNOTATION_TARGET_METHOD:
+        return "method";
+    case ANNOTATION_TARGET_CLASS:
+        return "class";
+    case ANNOTATION_TARGET_ASSIGNMENT:
+        return "assignment";
+    default:
+        return NULL;
+    }
+}
+
+static bool apply_annotations(ASTNode *node, Value *value, AnnotationTargetType target_type, const char *name)
+{
+    if (!node || node->annotation_count == 0)
+        return false;
+
+    int count = node->annotation_count;
+    Value *decorators = calloc(count, sizeof(Value));
+    Value *modifiers = calloc(count, sizeof(Value));
+    if (!decorators || !modifiers)
+    {
+        log_script_error(node->line, node->column, "Out of memory while applying annotations");
+        exit(1);
+    }
+
+    for (int i = 0; i < count; ++i)
+    {
+        Annotation *ann = node->annotations[i];
+        decorators[i] = annotations_clone_handler(ann->name, ANNOTATION_HANDLER_DECORATOR);
+        modifiers[i] = annotations_clone_handler(ann->name, ANNOTATION_HANDLER_MODIFIER);
+        if (decorators[i].type == VAL_UNDEFINED && modifiers[i].type == VAL_UNDEFINED)
+        {
+            log_script_error(ann->line, ann->column, "Unknown annotation '@%s'", ann->name);
+            exit(1);
+        }
+        if (ann->is_call && decorators[i].type == VAL_UNDEFINED)
+        {
+            log_script_error(ann->line, ann->column, "Annotation '@%s' does not support arguments", ann->name);
+            exit(1);
+        }
+        if (ann->arg_count > 0 && modifiers[i].type != VAL_UNDEFINED && decorators[i].type == VAL_UNDEFINED)
+        {
+            log_script_error(ann->line, ann->column, "Modifier '@%s' does not accept arguments", ann->name);
+            exit(1);
+        }
+    }
+
+    for (int i = count - 1; i >= 0; --i)
+    {
+        if (decorators[i].type == VAL_UNDEFINED)
+            continue;
+        Annotation *ann = node->annotations[i];
+        Value decorator_callable = decorators[i];
+        decorators[i].type = VAL_UNDEFINED;
+
+        Value *args = NULL;
+        if (ann->is_call)
+        {
+            if (ann->arg_count > 0)
+            {
+                args = malloc(sizeof(Value) * ann->arg_count);
+                if (!args)
+                {
+                    log_script_error(ann->line, ann->column, "Out of memory while applying decorator");
+                    exit(1);
+                }
+                for (int j = 0; j < ann->arg_count; ++j)
+                    args[j] = eval_node(ann->args[j]);
+            }
+            Value intermediate = call_value(decorator_callable, args, ann->arg_count, ann->line, ann->column);
+            free_value(decorator_callable);
+            decorator_callable = intermediate;
+            if (args)
+            {
+                for (int j = 0; j < ann->arg_count; ++j)
+                    free_value(args[j]);
+                free(args);
+                args = NULL;
+            }
+        }
+
+        Value decorator_args[1];
+        decorator_args[0] = *value;
+        Value decorated = call_value(decorator_callable, decorator_args, 1, ann->line, ann->column);
+        free_value(decorator_callable);
+        *value = decorated;
+    }
+
+    Object *info_obj = object_create();
+    if (!info_obj)
+    {
+        log_script_error(node->line, node->column, "Out of memory while applying annotations");
+        exit(1);
+    }
+    Value info_val = {.type = VAL_OBJECT, .obj = info_obj};
+    const char *label = annotation_target_label(target_type);
+    if (label)
+    {
+        Value type_val = {.type = VAL_STRING, .str = strdup(label)};
+        object_set(info_obj, "target_type", type_val);
+        free_value(type_val);
+    }
+    if (name)
+    {
+        Value name_val = {.type = VAL_STRING, .str = strdup(name)};
+        object_set(info_obj, "name", name_val);
+        free_value(name_val);
+    }
+
+    bool assign_private = false;
+    for (int i = 0; i < count; ++i)
+    {
+        if (modifiers[i].type == VAL_UNDEFINED)
+            continue;
+        Annotation *ann = node->annotations[i];
+        Value args[2];
+        args[0] = *value;
+        args[1] = info_val;
+        Value result = call_value(modifiers[i], args, 2, ann->line, ann->column);
+        free_value(modifiers[i]);
+        modifiers[i].type = VAL_UNDEFINED;
+
+        if (result.type == VAL_OBJECT)
+        {
+            Value flag = object_get(result.obj, "assign_private");
+            if (flag.type == VAL_BOOL && flag.boolean)
+                assign_private = true;
+        }
+        free_value(result);
+    }
+
+    free_value(info_val);
+
+    for (int i = 0; i < count; ++i)
+    {
+        if (decorators[i].type != VAL_UNDEFINED)
+            free_value(decorators[i]);
+        if (modifiers[i].type != VAL_UNDEFINED)
+            free_value(modifiers[i]);
+    }
+
+    free(decorators);
+    free(modifiers);
+
+    return assign_private;
+}
+
 Value run_ast(ASTNode **nodes, int count)
 {
     Value last = {.type = VAL_UNDEFINED};
@@ -1173,16 +1389,23 @@ Value run_ast(ASTNode **nodes, int count)
 
             if (n->data.set.set_attr)
             {
+                if (n->annotation_count > 0)
+                {
+                    log_script_error(n->line, n->column, "Annotations are not supported on attribute assignments");
+                    exit(1);
+                }
                 assign_attribute_chain(n->data.set.set_attr, result);
             }
             else
             {
+                AnnotationTargetType target_type = result.type == VAL_FUNCTION ? ANNOTATION_TARGET_FUNCTION : ANNOTATION_TARGET_ASSIGNMENT;
+                bool modifier_private = apply_annotations(n, &result, target_type, n->data.set.set_name);
                 if (result.type == VAL_FUNCTION && result.func->env == NULL)
                 {
                     result.func->env = interpreter_current_env();
                     env_retain(interpreter_current_env());
                 }
-                if (n->is_private)
+                if (n->is_private || modifier_private)
                     set_private_variable(interpreter_current_env(), n->data.set.set_name, result);
                 else
                     set_variable(interpreter_current_env(), n->data.set.set_name, result);
@@ -1226,14 +1449,30 @@ Value run_ast(ASTNode **nodes, int count)
                 method->child_count = 0;
                 fn->env = interpreter_current_env();
                 env_retain(interpreter_current_env());
-                fn->bind_on_access = !method->is_static;
+                fn->attributes = object_create();
                 fn->is_async = method->data.method.is_async;
                 Value fv = {.type = VAL_FUNCTION, .func = fn};
+                bool method_private = apply_annotations(method, &fv, ANNOTATION_TARGET_METHOD, method->data.method.method_name);
+                (void)method_private;
+                if (fv.type == VAL_FUNCTION)
+                {
+                    Value static_flag = {.type = VAL_UNDEFINED};
+                    if (fv.func->attributes)
+                        static_flag = object_get(fv.func->attributes, "static");
+                    if (static_flag.type == VAL_BOOL)
+                        fv.func->bind_on_access = !static_flag.boolean;
+                    else
+                        fv.func->bind_on_access = !method->is_static;
+                }
                 object_set(t->attributes, method->data.method.method_name, fv);
             }
 
             Value tv = {.type = VAL_TYPE, .cls = t};
-            set_variable(interpreter_current_env(), n->data.cls.class_name, tv);
+            bool class_private = apply_annotations(n, &tv, ANNOTATION_TARGET_CLASS, n->data.cls.class_name);
+            if (n->is_private || class_private)
+                set_private_variable(interpreter_current_env(), n->data.cls.class_name, tv);
+            else
+                set_variable(interpreter_current_env(), n->data.cls.class_name, tv);
             break;
         }
         case NODE_FUNC_CALL:

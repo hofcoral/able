@@ -4,6 +4,17 @@
 #include "types/object.h"
 #include "types/value.h"
 
+Object *object_create(void)
+{
+    Object *obj = malloc(sizeof(Object));
+    if (!obj)
+        return NULL;
+    obj->count = 0;
+    obj->capacity = 0;
+    obj->pairs = NULL;
+    return obj;
+}
+
 Object *clone_object(const Object *src)
 {
     if (!src)

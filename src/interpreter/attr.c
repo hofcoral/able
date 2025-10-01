@@ -61,6 +61,21 @@ Value value_get_attr(Value receiver, const char *name)
         }
         return attr;
     }
+    else if (receiver.type == VAL_FUNCTION)
+    {
+        if (!receiver.func->attributes)
+        {
+            Value undef = {.type = VAL_UNDEFINED};
+            return undef;
+        }
+        Value attr = object_get(receiver.func->attributes, name);
+        if (attr.type == VAL_NULL)
+        {
+            Value undef = {.type = VAL_UNDEFINED};
+            return undef;
+        }
+        return attr;
+    }
     else if (receiver.type == VAL_OBJECT)
     {
         return object_get(receiver.obj, name);
@@ -80,6 +95,13 @@ void value_set_attr(Value receiver, const char *name, Value val)
     if (receiver.type == VAL_TYPE)
     {
         object_set(receiver.cls->attributes, name, val);
+        return;
+    }
+    if (receiver.type == VAL_FUNCTION)
+    {
+        if (!receiver.func->attributes)
+            receiver.func->attributes = object_create();
+        object_set(receiver.func->attributes, name, val);
         return;
     }
     if (receiver.type == VAL_OBJECT)
