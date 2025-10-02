@@ -1400,6 +1400,47 @@ Value run_ast(ASTNode **nodes, int count)
                         fv.func->bind_on_access = !method->is_static;
                 }
                 object_set(t->attributes, method->data.method.method_name, fv);
+
+                Value method_meta = value_get_attr(fv, "__abl_server_meta__");
+                if (method_meta.type == VAL_OBJECT)
+                {
+                    Value method_routes = object_get(method_meta.obj, "routes");
+                    if (method_routes.type == VAL_LIST && method_routes.list)
+                    {
+                        Value tv_tmp = {.type = VAL_TYPE, .cls = t};
+                        Value class_meta = value_get_attr(tv_tmp, "__abl_server_meta__");
+                        if (class_meta.type != VAL_OBJECT)
+                        {
+                            Object *meta_obj = object_create();
+                            Value meta_val = {.type = VAL_OBJECT, .obj = meta_obj};
+                            value_set_attr(tv_tmp, "__abl_server_meta__", meta_val);
+                            free_value(meta_val);
+                            class_meta = value_get_attr(tv_tmp, "__abl_server_meta__");
+                        }
+
+                        Value class_routes = object_get(class_meta.obj, "routes");
+                        if (class_routes.type != VAL_LIST || !class_routes.list)
+                        {
+                            List *routes_list = malloc(sizeof(List));
+                            routes_list->count = 0;
+                            routes_list->capacity = 0;
+                            routes_list->items = NULL;
+                            Value routes_val = {.type = VAL_LIST, .list = routes_list};
+                            object_set(class_meta.obj, "routes", routes_val);
+                            class_routes = object_get(class_meta.obj, "routes");
+                        }
+
+                        for (int r = 0; r < method_routes.list->count; ++r)
+                        {
+                            Value entry = method_routes.list->items[r];
+                            if (entry.type != VAL_OBJECT)
+                                continue;
+                            Value route_val = {.type = VAL_OBJECT, .obj = clone_object(entry.obj)};
+                            list_append(class_routes.list, route_val);
+                            free_value(route_val);
+                        }
+                    }
+                }
             }
 
             Value tv = {.type = VAL_TYPE, .cls = t};

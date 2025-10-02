@@ -32,7 +32,7 @@ fun _normalize_path(path):
 fun _append_route(target, verb, path):
     meta = _ensure_meta(target)
     routes = _clone_list(meta.routes)
-    routes.append({ "verb": verb, "path": path })
+    routes.append({ "verb": verb, "path": path, "handler": target })
     meta.routes = routes
     target.__abl_server_meta__ = meta
     return target
