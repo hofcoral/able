@@ -1,0 +1,30 @@
+from server.annotations import route, get, post
+from server.router import build_routes
+
+class Request():
+    fun init(this, method, path):
+        this.method = method
+        this.path = path
+
+@route("/api")
+class UserController():
+    fun init(this):
+        this.prefix = "user"
+
+    @get
+    fun index(this, request):
+        return this.prefix + ":" + request.method
+
+    @post("/users")
+    fun create(this, request):
+        return this.prefix + ":" + request.method
+
+controllers = []
+controllers.append(UserController)
+routes = build_routes(controllers)
+pr(len(routes))
+for route of routes:
+    pr(route.method + " " + route.path)
+    request = Request(route.method, route.path)
+    response = route.handler(request)
+    pr(response)
