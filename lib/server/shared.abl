@@ -1,0 +1,29 @@
+fun to_string(value, fallback):
+    if type(value) == "UNDEFINED" or value == null:
+        return fallback
+    if type(value) == "STRING":
+        if value == "":
+            return fallback
+        return value
+    text = str(value)
+    if text == "":
+        return fallback
+    return text
+
+fun is_callable(value):
+    t = type(value)
+    return t == "FUNCTION" or t == "BOUND_METHOD"
+
+fun to_list(value):
+    if type(value) == "LIST":
+        return value
+    items = []
+    if type(value) == "UNDEFINED" or value == null:
+        return items
+    items.append(value)
+    return items
+
+fun clone_object(value):
+    if type(value) == "OBJECT":
+        return dict(value)
+    return {}
