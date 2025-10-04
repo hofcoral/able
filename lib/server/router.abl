@@ -1,20 +1,9 @@
-from server.annotations import get_base_path, get_routes
-
-fun _to_string(value, fallback):
-    if type(value) == "UNDEFINED" or value == null:
-        return fallback
-    if type(value) == "STRING":
-        if value == "":
-            return fallback
-        return value
-    text = str(value)
-    if text == "":
-        return fallback
-    return text
+from server.annotations import get_base_path, get_routes, get_middleware
+from server.shared import to_string, is_callable
 
 fun _join_path(base_path, method_path):
-    base = _to_string(base_path, "/")
-    method = _to_string(method_path, "/")
+    base = to_string(base_path, "/")
+    method = to_string(method_path, "/")
     if base == "/":
         if method == "/" or method == "":
             return "/"
@@ -23,17 +12,13 @@ fun _join_path(base_path, method_path):
         return base
     return base + method
 
-fun _is_callable(value):
-    t = type(value)
-    return t == "FUNCTION" or t == "BOUND_METHOD"
-
 fun _bind_handler(instance, handler):
     fun bound(request):
         return handler(instance, request)
     return bound
 
 fun _resolve_handler(instance, handler):
-    if not _is_callable(handler):
+    if not is_callable(handler):
         return null
     if type(handler) == "FUNCTION":
         return _bind_handler(instance, handler)
@@ -45,31 +30,68 @@ fun _extract_method(route):
         method = route.verb
     if type(method) == "UNDEFINED" or method == null:
         return null
-    return _to_string(method, "")
+    return to_string(method, "")
 
 fun _extract_path(route):
     path = route.path
     if type(path) == "UNDEFINED" or path == null:
         return "/"
-    return _to_string(path, "/")
+    return to_string(path, "/")
+
+fun _clone_list(items):
+    cloned = []
+    if type(items) == "LIST":
+        for entry of items:
+            cloned.append(entry)
+    return cloned
+
+fun _collect_middleware_entries(target):
+    collected = []
+    entries = get_middleware(target)
+    if type(entries) == "LIST":
+        for entry of entries:
+            if not is_callable(entry):
+                continue
+            collected.append(entry)
+    return collected
+
+fun _normalize_method(method):
+    return to_string(method, "")
+
+fun _create_route_key(method, path):
+    return _normalize_method(method) + " " + path
+
+fun _build_route_record(controller_cls, instance, base_path, definition, controller_middleware):
+    method = _extract_method(definition)
+    if method == null or method == "":
+        return null
+    joined_path = _join_path(base_path, _extract_path(definition))
+    handler = _resolve_handler(instance, definition.handler)
+    if handler == null:
+        return null
+    route_middleware = _collect_middleware_entries(definition.handler)
+    record = {}
+    record.method = _normalize_method(method)
+    record.path = joined_path
+    record.key = _create_route_key(record.method, record.path)
+    record.handler = handler
+    record.action = definition.handler
+    record.controller = instance
+    record.controller_class = controller_cls
+    record.controller_middleware = _clone_list(controller_middleware)
+    record.route_middleware = route_middleware
+    return record
 
 fun _collect_route_records(controller_cls, instance):
-    base_path = _to_string(get_base_path(controller_cls), "/")
+    base_path = to_string(get_base_path(controller_cls), "/")
     definitions = get_routes(controller_cls)
     records = []
+    controller_middleware = _collect_middleware_entries(controller_cls)
     if type(definitions) == "LIST":
         for definition of definitions:
-            method = _extract_method(definition)
-            if method == null or method == "":
+            record = _build_route_record(controller_cls, instance, base_path, definition, controller_middleware)
+            if record == null:
                 continue
-            joined_path = _join_path(base_path, _extract_path(definition))
-            handler = _resolve_handler(instance, definition.handler)
-            if handler == null:
-                continue
-            record = {}
-            record.method = method
-            record.path = joined_path
-            record.handler = handler
             records.append(record)
     return records
 
@@ -83,3 +105,40 @@ fun build_routes(registry):
                 for route of controller_routes:
                     routes.append(route)
     return routes
+
+fun build_route_index(routes):
+    index = {}
+    entries = []
+    if type(routes) == "LIST":
+        for route of routes:
+            entry = {}
+            entry.key = route.key
+            entry.method = route.method
+            entry.path = route.path
+            entry.route = route
+            entries.append(entry)
+    index.entries = entries
+    return index
+
+fun find_route(index, method, path):
+    if type(index) == "OBJECT":
+        entries = index.entries
+        if type(entries) == "LIST":
+            key = _create_route_key(method, to_string(path, "/"))
+            for entry of entries:
+                if entry.key == key:
+                    return entry.route
+    return null
+
+fun create_router(registry):
+    routes = build_routes(registry)
+    index = build_route_index(routes)
+    router = {}
+    router.routes = routes
+    router.index = index
+
+    fun match(method, path):
+        return find_route(index, method, path)
+
+    router.match = match
+    return router
