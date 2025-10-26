@@ -1,0 +1,46 @@
+from server.annotations import route, get, post, use
+from server.router import create_router
+
+@middleware
+fun global_logger(context, next):
+    return next()
+
+@middleware
+fun class_logger(this, context, next):
+    return next()
+
+@middleware
+fun method_logger(this, context, next):
+    return next()
+
+@route("/api")
+@use(class_logger)
+class Controller():
+    fun init(this):
+        this.label = "controller"
+
+    @get
+    fun index(this, context):
+        return "ok"
+
+    @post("/items")
+    @use(method_logger)
+    fun create(this, context):
+        return "created"
+
+controllers = []
+controllers.append(Controller)
+router = create_router(controllers)
+
+route_get = router.match("GET", "/api")
+pr(route_get.controller.label)
+pr(route_get.key)
+pr(len(route_get.controller_middleware))
+pr(len(route_get.route_middleware))
+
+route_post = router.match("POST", "/api/items")
+pr(route_post.key)
+pr(len(route_post.route_middleware))
+
+missing = router.match("PATCH", "/api")
+pr(missing == null)
