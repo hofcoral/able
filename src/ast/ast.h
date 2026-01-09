@@ -30,6 +30,7 @@ typedef enum
     NODE_UNARY,
     NODE_AWAIT,
     NODE_OBJECT_LITERAL,
+    NODE_LIST_LITERAL,
     NODE_INDEX
 } NodeType;
 

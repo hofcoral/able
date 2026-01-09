@@ -1,0 +1,33 @@
+from random import randint
+
+fun generate_random_array(size):
+
+    array = []
+
+    for i of size:
+        array.append(randint(1, 1000))
+
+    return array
+    
+
+fun bubble_sort(array):
+
+    if len(array) <= 1:
+        return array
+    
+    for i of len(array):
+        limit = len(array) - i - 1
+        for j of limit:
+            nxtidx = j + 1
+            if array.get(j) > array.get(nxtidx):
+                tmp = array.get(j)
+                array.set(j, array.get(nxtidx))
+                array.set(nxtidx, tmp)
+    return array
+
+
+random_array = generate_random_array(10)
+
+pr("Before:", random_array)
+sorted = bubble_sort(random_array)
+pr("After:", sorted)

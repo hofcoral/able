@@ -23,7 +23,6 @@
 #include "interpreter/annotations.h"
 #include "utils/utils.h"
 #include "utils/json.h"
-#include "types/type_registry.h"
 
 CallStack call_stack;
 static bool break_flag = false;
@@ -39,6 +38,11 @@ typedef enum
 
 static Value exec_func_call(ASTNode *n);
 static Value resolve_attr_prefix(ASTNode *attr_node, int count);
+
+static bool value_is_container(Value v)
+{
+    return v.type == VAL_OBJECT || v.type == VAL_INSTANCE || v.type == VAL_TYPE || v.type == VAL_FUNCTION;
+}
 
 static double to_number(Value v)
 {
@@ -124,7 +128,7 @@ static Value resolve_attr_prefix(ASTNode *attr_node, int count)
                               attr_node->line, attr_node->column);
     for (int i = 0; i < count; ++i)
     {
-        if (base.type != VAL_OBJECT)
+        if (!value_is_container(base))
         {
             log_script_error(attr_node->children[i]->line,
                               attr_node->children[i]->column,
@@ -132,7 +136,7 @@ static Value resolve_attr_prefix(ASTNode *attr_node, int count)
                               attr_node->children[i]->data.attr.attr_name);
             exit(1);
         }
-        base = object_get(base.obj, attr_node->children[i]->data.attr.attr_name);
+        base = value_get_attr(base, attr_node->children[i]->data.attr.attr_name);
     }
     return base;
 }
@@ -140,14 +144,12 @@ static Value resolve_attr_prefix(ASTNode *attr_node, int count)
 void interpreter_init()
 {
     stack_init(&call_stack);
-    type_registry_init();
     annotations_init();
 }
 
 void interpreter_cleanup()
 {
     annotations_cleanup();
-    type_registry_cleanup();
     stack_free(&call_stack);
 }
 
@@ -198,6 +200,19 @@ static Value eval_node(ASTNode *n)
             object_set(obj, n->data.object.keys[i], val);
         }
         return (Value){.type = VAL_OBJECT, .obj = obj};
+    }
+    case NODE_LIST_LITERAL:
+    {
+        List *list = malloc(sizeof(List));
+        list->count = 0;
+        list->capacity = 0;
+        list->items = NULL;
+        for (int i = 0; i < n->child_count; ++i)
+        {
+            Value item = eval_node(n->children[i]);
+            list_append(list, item);
+        }
+        return (Value){.type = VAL_LIST, .list = list};
     }
     case NODE_FUNC_CALL:
         return exec_func_call(n);
@@ -403,9 +418,19 @@ static Value eval_node(ASTNode *n)
                 res.num = left.num * right.num;
                 break;
             case OP_DIV:
-                res.num = right.num != 0 ? left.num / right.num : 0;
+                if (right.num == 0)
+                {
+                    log_script_error(n->line, n->column, "Division by zero");
+                    exit(1);
+                }
+                res.num = left.num / right.num;
                 break;
             case OP_MOD:
+                if (right.num == 0)
+                {
+                    log_script_error(n->line, n->column, "Modulo by zero");
+                    exit(1);
+                }
                 res.num = fmod(left.num, right.num);
                 break;
             default:
@@ -969,6 +994,28 @@ static Value exec_func_call(ASTNode *n)
                     }
                     Value arg = eval_node(n->children[0]);
                     list_append(target.list, arg);
+                    Value undef = {.type = VAL_UNDEFINED};
+                    return undef;
+                }
+                if (strcmp(name, "set") == 0)
+                {
+                    if (n->child_count != 2)
+                    {
+                        log_script_error(n->line, n->column, "set() expects two arguments");
+                        exit(1);
+                    }
+                    Value idxv = eval_node(n->children[0]);
+                    if (idxv.type != VAL_NUMBER)
+                    {
+                        log_script_error(n->line, n->column, "set() index must be number");
+                        exit(1);
+                    }
+                    Value value = eval_node(n->children[1]);
+                    if (!list_set(target.list, (int)idxv.num, value))
+                    {
+                        log_script_error(n->line, n->column, "set() index out of range");
+                        exit(1);
+                    }
                     Value undef = {.type = VAL_UNDEFINED};
                     return undef;
                 }

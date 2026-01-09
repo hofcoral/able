@@ -54,6 +54,8 @@ void free_value(Value v)
         instance_release(v.instance);
         break;
     case VAL_BOUND_METHOD:
+        if (v.bound && v.bound->self)
+            instance_release(v.bound->self);
         free(v.bound);
         break;
     case VAL_PROMISE:
@@ -101,6 +103,8 @@ Value clone_value(const Value *src)
             BoundMethod *bm = malloc(sizeof(BoundMethod));
             bm->self = src->bound->self;
             bm->func = src->bound->func;
+            if (bm->self)
+                instance_retain(bm->self);
             copy.bound = bm;
         } else {
             copy.bound = NULL;

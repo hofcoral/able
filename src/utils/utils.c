@@ -33,18 +33,6 @@ void log_script_error(int line, int column, const char *fmt, ...)
     va_end(args);
 }
 
-void log_debug(const char *fmt __attribute__((unused)), ...)
-{
-#ifdef DEBUG
-    va_list args;
-    va_start(args, fmt);
-    printf("[DEBUG] ");
-    vprintf(fmt, args);
-    printf("\n");
-    va_end(args);
-#endif
-}
-
 char *read_file(const char *filename)
 {
     FILE *file = fopen(filename, "r");

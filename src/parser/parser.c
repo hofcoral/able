@@ -60,6 +60,8 @@ static bool is_identifier_like(TokenType type)
 static void advance_token() {
     prev_line = current.line;
     prev_col = current.column;
+    free(current.value);
+    current.value = NULL;
     current = next_token(L);
 }
 
@@ -235,9 +237,8 @@ static ASTNode *parse_literal_node()
     }
     else if (current.type == TOKEN_LBRACKET)
     {
-        ASTNode *lst = parse_list_literal();
-        n->data.lit.literal_value = lst->data.lit.literal_value;
-        free(lst);
+        free(n);
+        return parse_list_literal();
     }
     else
     {
@@ -884,56 +885,19 @@ ASTNode *parse_list_literal()
     int line = prev_line;
     int col = prev_col;
 
-    int cap = 4, count = 0;
-    Value *items = malloc(sizeof(Value) * cap);
+    ASTNode *node = new_node(NODE_LIST_LITERAL, line, col);
 
     while (current.type != TOKEN_RBRACKET)
     {
         while (current.type == TOKEN_NEWLINE)
             advance_token();
 
-        if (count == cap)
-        {
-            cap *= 2;
-            items = realloc(items, sizeof(Value) * cap);
-        }
+        if (current.type == TOKEN_RBRACKET)
+            break;
 
-        if (current.type == TOKEN_STRING)
-        {
-            items[count].type = VAL_STRING;
-            items[count].str = strdup(current.value);
-            advance_token();
-        }
-        else if (current.type == TOKEN_NUMBER)
-        {
-            items[count].type = VAL_NUMBER;
-            items[count].num = atof(current.value);
-            advance_token();
-        }
-        else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
-        {
-            items[count].type = VAL_BOOL;
-            items[count].boolean = (current.type == TOKEN_TRUE);
-            advance_token();
-        }
-        else if (current.type == TOKEN_NULL)
-        {
-            items[count].type = VAL_NULL;
-            advance_token();
-        }
-        else if (current.type == TOKEN_LBRACKET)
-        {
-            ASTNode *lst = parse_list_literal();
-            items[count] = lst->data.lit.literal_value;
-            free(lst);
-        }
-        else
-        {
-            log_script_error(current.line, current.column, "Expected literal value in list");
-            exit(1);
-        }
+        ASTNode *item = parse_expression();
+        add_child(node, item);
 
-        count++;
         if (!match(TOKEN_COMMA))
         {
             while (current.type == TOKEN_NEWLINE)
@@ -944,14 +908,6 @@ ASTNode *parse_list_literal()
 
     expect(TOKEN_RBRACKET, "]");
 
-    List *list = malloc(sizeof(List));
-    list->count = count;
-    list->capacity = cap;
-    list->items = items;
-
-    ASTNode *node = new_node(NODE_LITERAL, line, col);
-    node->data.lit.literal_value.type = VAL_LIST;
-    node->data.lit.literal_value.list = list;
     return node;
 }
 
@@ -1315,5 +1271,7 @@ ASTNode **parse_program(Lexer *lexer, int *out_count)
     }
 
     *out_count = count;
+    free(current.value);
+    current.value = NULL;
     return list;
 }
