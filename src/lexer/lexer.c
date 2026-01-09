@@ -271,6 +271,29 @@ Token next_token(Lexer *lexer)
         const char *start = &lexer->source[lexer->pos - 1];
         while (isdigit(peek(lexer)))
             advance(lexer);
+        if (peek(lexer) == '.' && lexer->pos + 1 < lexer->length &&
+            isdigit(lexer->source[lexer->pos + 1]))
+        {
+            advance(lexer);
+            while (isdigit(peek(lexer)))
+                advance(lexer);
+        }
+        if (peek(lexer) == 'e' || peek(lexer) == 'E')
+        {
+            size_t exp_pos = lexer->pos;
+            advance(lexer);
+            if (peek(lexer) == '+' || peek(lexer) == '-')
+                advance(lexer);
+            if (!isdigit(peek(lexer)))
+            {
+                lexer->pos = exp_pos;
+            }
+            else
+            {
+                while (isdigit(peek(lexer)))
+                    advance(lexer);
+            }
+        }
         return make_token(TOKEN_NUMBER, start, &lexer->source[lexer->pos] - start, lexer->line, column);
     }
 

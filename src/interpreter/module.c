@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <libgen.h>
 #include <limits.h>
@@ -19,6 +20,7 @@ typedef struct ModuleEntry {
     char *name;
     Value obj;
     Env *env;
+    bool loading;
     UT_hash_handle hh;
 } ModuleEntry;
 
@@ -63,7 +65,14 @@ static ModuleEntry *load_module(const char *name, int line, int column)
     ModuleEntry *m = NULL;
     HASH_FIND_STR(modules, name, m);
     if (m)
+    {
+        if (m->loading)
+        {
+            log_script_error(line, column, "ImportError: circular import detected for '%s'", name);
+            exit(1);
+        }
         return m;
+    }
 
     char *file = find_module_file(name);
     if (!file) {
@@ -73,25 +82,28 @@ static ModuleEntry *load_module(const char *name, int line, int column)
     char *src = read_file(file);
     Lexer lx; lexer_init(&lx, src);
     int count; ASTNode **prog = parse_program(&lx, &count);
-    Env *env = env_create(global_env_ref);
-    interpreter_set_env(env);
-    run_ast(prog, count);
-    interpreter_pop_env();
 
-    Object *obj = malloc(sizeof(Object));
-    obj->count = 0; obj->capacity = 0; obj->pairs = NULL;
-    Variable *var, *tmp;
-    HASH_ITER(hh, env->vars, var, tmp) {
-        if (!var->is_private)
-            object_set(obj, var->name, var->value);
-    }
+    Env *env = env_create(global_env_ref);
+    Object *obj = object_create();
     Value val = { .type = VAL_OBJECT, .obj = obj };
 
     m = malloc(sizeof(ModuleEntry));
     m->name = strdup(name);
     m->obj = val;
     m->env = env;
+    m->loading = true;
     HASH_ADD_KEYPTR(hh, modules, m->name, strlen(m->name), m);
+
+    interpreter_set_env(env);
+    run_ast(prog, count);
+    interpreter_pop_env();
+
+    Variable *var, *tmp;
+    HASH_ITER(hh, env->vars, var, tmp) {
+        if (!var->is_private)
+            object_set(obj, var->name, var->value);
+    }
+    m->loading = false;
 
     free_ast(prog, count);
     free(src);
@@ -139,7 +151,7 @@ Value import_module_attr(const char *mod, const char *attr, int line, int column
 {
     ModuleEntry *m = load_module(mod, line, column);
     Value v = object_get(m->obj.obj, attr);
-    if (v.type == VAL_NULL || v.type == VAL_UNDEFINED) {
+    if (v.type == VAL_UNDEFINED) {
         log_script_error(line, column, "ImportError: module '%s' has no attribute '%s'", mod, attr);
         exit(1);
     }

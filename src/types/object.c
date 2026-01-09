@@ -60,6 +60,11 @@ void free_object(Object *obj)
 // Optional: Get value for a key
 Value object_get(Object *obj, const char *key)
 {
+    if (!obj || !key)
+    {
+        Value v = {.type = VAL_UNDEFINED};
+        return v;
+    }
     for (int i = 0; i < obj->count; ++i)
     {
         if (strcmp(obj->pairs[i].key, key) == 0)
@@ -68,7 +73,7 @@ Value object_get(Object *obj, const char *key)
         }
     }
 
-    Value v = {.type = VAL_NULL};
+    Value v = {.type = VAL_UNDEFINED};
     return v;
 }
 

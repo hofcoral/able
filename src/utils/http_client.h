@@ -18,7 +18,7 @@ typedef struct
     const char *cache_control;
     const char *credentials;
     const char *integrity;
-    const char *refferer;
+    const char *referer;
 } HttpRequestOptions;
 
 typedef struct

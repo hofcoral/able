@@ -25,8 +25,7 @@ Able is a single binary C interpreter built from modular subsystems located in
   This layer isolates parser output from interpreter execution.
 - **`src/types/`** – Runtime objects. `value.c` models primitive values, `object.c`
   and `type.c` define common object/type behaviors, `instance.c` and
-  `list.c` provide container implementations, `env.c` manages lexical scope, and
-  `type_registry.c` wires runtime types together.
+  `list.c` provide container implementations, and `env.c` manages lexical scope.
 - **`src/interpreter/`** – Executes Able code. `interpreter.c` drives evaluation,
   `stack.c` maintains the call stack, `resolve.c` handles identifier lookup,
   `attr.c` resolves attribute access, `module.c` implements import semantics, and
@@ -82,7 +81,7 @@ Automation expectations:
   functions short and cohesive. Use descriptive names and avoid hardcoded magic
   values—introduce enums or constants where applicable.
 - **Threading** – The interpreter is single-threaded. Avoid shared global state
-  unless it is properly encapsulated (e.g., the global type registry).
+  unless it is properly encapsulated.
 
 ---
 
@@ -125,8 +124,8 @@ Automation expectations:
 - **Core abstractions**: `Value` (boxed representation of runtime data),
   `Object` (base struct for heap entities), `Type` (runtime type descriptor),
   `Instance` (user-defined classes), `List`, and `Env` (lexical scope frames).
-- **Type registration**: `type_registry.c` wires builtin types into the global
-  registry; `type_registry.h` exposes lookup helpers.
+- **Type registration**: Update the `ValueType` enum and `value_type_name` in
+  `src/types/value.c` when introducing new runtime types.
 - **Extending**: To add a new builtin type, create a `type_*.c` that defines the
   type methods, register it with the registry, and expose conversion helpers. For
   collections, ensure you update garbage-collection-style cleanup to release any
@@ -395,7 +394,7 @@ class JsonModuleTests(AbleTestCase):
 
 ### Extending Runtime Types
 1. Add or update type definitions in `src/types`.
-2. Register new behaviors in `type_registry.c`.
+2. Register new behaviors by extending `ValueType` and any interpreter dispatch.
 3. Ensure the interpreter understands how to operate on the new type (e.g.,
    arithmetic, iteration).
 4. Cover behavior with integration tests.
@@ -524,14 +523,8 @@ bool range_next(Range *range, double *out)
 +        break;
 ```
 
-```diff
-// src/types/type_registry.c
-     register_type(type_create("object"));
-     register_type(type_create("function"));
-     register_type(type_create("list"));
-+    register_type(type_create("range"));
- }
-```
+Update the `ValueType` enum and `TYPE_NAMES` array in `src/types/value.c` so
+the new type shows up in `type()` output and internal dispatch.
 
 ```diff
 // src/interpreter/interpreter.c (iteration support)
@@ -589,7 +582,7 @@ class RangeTypeTests(AbleTestCase):
 
 ## Operational Tips
 - Use `make run file=examples/...` to quickly exercise a script while iterating.
-- When debugging, sprinkle `log_debug` (or add a temporary variant) to trace
+- When debugging, sprinkle `log_info` (or add a temporary variant) to trace
   execution; remember to remove or guard noisy logging before merging.
 - Watch for memory leaks—`valgrind` is helpful when available.
 - Keep the interpreter deterministic. Avoid reliance on undefined behavior or
@@ -610,6 +603,6 @@ class RangeTypeTests(AbleTestCase):
 - Review existing tests and examples to understand expected semantics.
 - Consult `README.md` for quick-start instructions.
 - Explore prior commits for patterns when modifying core systems like the
-  interpreter or type registry.
+  interpreter or runtime types.
 
 Happy hacking, and keep Able lean, predictable, and well-tested.

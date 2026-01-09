@@ -24,12 +24,6 @@ EXAMPLES = {
     'examples/control/if_comp_gt.abl': 'gt\n',
     'examples/control/if_comp_lte.abl': 'lte\n',
     'examples/control/if_comp_gte.abl': 'gte\n',
-    'examples/types/string_type.abl': 'STRING\n',
-    'examples/types/number_type.abl': 'NUMBER\n',
-    'examples/types/boolean_type.abl': 'BOOLEAN\n',
-    'examples/types/null_type.abl': 'NULL\n',
-    'examples/types/object_type.abl': 'OBJECT\n',
-    'examples/types/function_type.abl': 'FUNCTION\n',
     'examples/variables/list_ops.abl': '1\n2\n3\n',
     'examples/variables/list_indexing.abl': '10\n[20, 30, 40, 50]\n[10, 20, 30]\n50\n',
     'examples/control/for_loop.abl': '1\n2\n3\n',
@@ -39,6 +33,8 @@ EXAMPLES = {
     'examples/variables/increment.abl': '0\n1\n',
     'examples/variables/logical_ops.abl': 'false\ntrue\ntrue\n',
     'examples/variables/ternary.abl': 'yes\nno\n',
+    'examples/variables/list_literal_expr.abl': '3\n6\nab\n',
+    'examples/closure.abl': 'hello\n',
 }
 
 class ExampleTests(AbleTestCase):

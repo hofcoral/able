@@ -540,9 +540,9 @@ static bool build_curl_command(const char *method,
             }
         }
 
-        if (options->refferer && strlen(options->refferer) > 0)
+        if (options->referer && strlen(options->referer) > 0)
         {
-            if (!arg_list_append(args, "--referer") || !arg_list_append(args, options->refferer))
+            if (!arg_list_append(args, "--referer") || !arg_list_append(args, options->referer))
             {
                 if (error_message)
                     *error_message = strdup("Failed to set referer");

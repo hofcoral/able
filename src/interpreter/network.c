@@ -14,7 +14,7 @@ typedef struct
     char *cache_control;
     char *credentials;
     char *integrity;
-    char *refferer;
+    char *referer;
     HttpRequestHeader *headers;
     size_t header_count;
 } ParsedOptions;
@@ -25,7 +25,7 @@ static void parsed_options_init(ParsedOptions *opts)
     opts->cache_control = NULL;
     opts->credentials = NULL;
     opts->integrity = NULL;
-    opts->refferer = NULL;
+    opts->referer = NULL;
     opts->headers = NULL;
     opts->header_count = 0;
 }
@@ -38,7 +38,7 @@ static void parsed_options_cleanup(ParsedOptions *opts)
     free(opts->cache_control);
     free(opts->credentials);
     free(opts->integrity);
-    free(opts->refferer);
+    free(opts->referer);
     if (opts->headers)
     {
         for (size_t i = 0; i < opts->header_count; ++i)
@@ -126,8 +126,10 @@ static void parse_options(Object *options_obj, ParsedOptions *opts, int line, in
         opts->credentials = value_to_string(&value, "options.credentials", line, column);
     if (object_try_get(options_obj, "integrity", &value))
         opts->integrity = value_to_string(&value, "options.integrity", line, column);
-    if (object_try_get(options_obj, "refferer", &value))
-        opts->refferer = value_to_string(&value, "options.refferer", line, column);
+    if (object_try_get(options_obj, "referer", &value))
+        opts->referer = value_to_string(&value, "options.referer", line, column);
+    else if (object_try_get(options_obj, "refferer", &value))
+        opts->referer = value_to_string(&value, "options.refferer", line, column);
     if (object_try_get(options_obj, "headers", &value))
     {
         if (value.type != VAL_OBJECT)
@@ -259,7 +261,7 @@ Value network_execute(const char *method,
         request_opts.cache_control = parsed.cache_control;
         request_opts.credentials = parsed.credentials;
         request_opts.integrity = parsed.integrity;
-        request_opts.refferer = parsed.refferer;
+        request_opts.referer = parsed.referer;
         request_opts.headers = parsed.headers;
         request_opts.header_count = parsed.header_count;
     }
