@@ -1,0 +1,18 @@
+numbers = [1, 3, 5, 7, 9, 11]
+
+fun binary_search(sorted, target):
+    low = 0
+    high = len(sorted) - 1
+    while low <= high:
+        mid = int((low + high) / 2)
+        value = sorted.get(mid)
+        if value == target:
+            return mid
+        if value < target:
+            low = mid + 1
+        else:
+            high = mid - 1
+    return -1
+
+pr(binary_search(numbers, 7))
+pr(binary_search(numbers, 2))

@@ -1,0 +1,5 @@
+lst = [10, 20, 30]
+lst.set(-1, 99)
+lst.set(-3, 7)
+pr(lst.get(0))
+pr(lst.get(2))

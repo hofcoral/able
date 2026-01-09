@@ -1,0 +1,20 @@
+numbers = [10, 7, 8, 9, 1, 5]
+
+fun quick_sort(values):
+    if len(values) <= 1:
+        return values
+    pivot = values.get(0)
+    left = []
+    right = []
+    i = 1
+    while i < len(values):
+        value = values.get(i)
+        if value < pivot:
+            left.append(value)
+        else:
+            right.append(value)
+        i++
+    return quick_sort(left) + [pivot] + quick_sort(right)
+
+pr("Before:", numbers)
+pr("After:", quick_sort(numbers))

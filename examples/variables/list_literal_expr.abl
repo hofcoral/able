@@ -1,0 +1,5 @@
+x = 2
+lst = [1 + x, x * 3, "a" + "b"]
+pr(lst.get(0))
+pr(lst.get(1))
+pr(lst.get(2))

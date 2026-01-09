@@ -1,0 +1,20 @@
+numbers = [64, 25, 12, 22, 11]
+
+fun selection_sort(values):
+    i = 0
+    while i < len(values):
+        min_idx = i
+        j = i + 1
+        while j < len(values):
+            if values.get(j) < values.get(min_idx):
+                min_idx = j
+            j++
+        if min_idx != i:
+            tmp = values.get(i)
+            values.set(i, values.get(min_idx))
+            values.set(min_idx, tmp)
+        i++
+    return values
+
+pr("Before:", numbers)
+pr("After:", selection_sort(numbers))

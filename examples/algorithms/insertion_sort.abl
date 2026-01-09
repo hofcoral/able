@@ -1,0 +1,14 @@
+numbers = [12, 11, 13, 5, 6]
+
+fun insertion_sort(values):
+    for i of len(values):
+        j = i
+        while j > 0 and values.get(j - 1) > values.get(j):
+            tmp = values.get(j)
+            values.set(j, values.get(j - 1))
+            values.set(j - 1, tmp)
+            j = j - 1
+    return values
+
+pr("Before:", numbers)
+pr("After:", insertion_sort(numbers))
