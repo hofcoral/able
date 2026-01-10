@@ -41,6 +41,7 @@ typedef enum
     TOKEN_AND,
     TOKEN_OR,
     TOKEN_NOT,
+    TOKEN_IS,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
     TOKEN_LBRACKET,

@@ -1,0 +1,14 @@
+pr(type_name(1))
+pr(type_name("hi"))
+pr(type_name(true))
+pr(type_name(list()))
+pr(type_name({}))
+pr(type_name(null))
+
+fun f():
+    return 1
+
+pr(type_name(f))
+pr(type_name(Number))
+pr(type_name(Promise))
+pr(type(1) is Type)

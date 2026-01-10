@@ -10,6 +10,7 @@
 
 #include "interpreter/interpreter.h"
 #include "types/list.h"
+#include "types/number.h"
 #include "types/object.h"
 #include "types/value.h"
 #include "utils/http_server.h"
@@ -83,9 +84,12 @@ static char *value_to_owned_string(const Value *value, int line, int column, con
         return duplicate_string_checked(value->str, line, column, field);
     case VAL_NUMBER:
     {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.15g", value->num);
-        return duplicate_string_checked(buf, line, column, field);
+        char *text = number_to_string(value->number);
+        if (!text)
+            fatal_script_error(line, column, "%s must be number-compatible", field);
+        char *copy = duplicate_string_checked(text, line, column, field);
+        free(text);
+        return copy;
     }
     case VAL_BOOL:
         return duplicate_string_checked(value->boolean ? "true" : "false", line, column, field);
@@ -333,8 +337,9 @@ static bool normalize_response_value(const Value *result, Value *normalized, con
     if (!response_obj)
         return false;
 
-    Value status_default = {.type = VAL_NUMBER, .num = 200};
+    Value status_default = {.type = VAL_NUMBER, .number = number_from_int(200)};
     object_set(response_obj, "status", status_default);
+    free_value(status_default);
 
     Object *headers_default = object_create();
     if (!headers_default)
@@ -389,8 +394,9 @@ static bool normalize_response_value(const Value *result, Value *normalized, con
         {
             if (status_field->type != VAL_NUMBER)
                 fatal_script_error(ctx->call_line, ctx->call_column, "response.status must be a number");
-            Value status_copy = {.type = VAL_NUMBER, .num = status_field->num};
+            Value status_copy = {.type = VAL_NUMBER, .number = number_clone(status_field->number)};
             object_set(response_obj, "status", status_copy);
+            free_value(status_copy);
         }
 
         if (status_text_field)
@@ -477,11 +483,12 @@ static bool apply_response_object(const Value *result, HttpServerResponse *respo
             headers_val = &obj->pairs[i].value;
     }
 
-    if (status_val)
-    {
-        if (status_val->type != VAL_NUMBER)
-            fatal_script_error(ctx->call_line, ctx->call_column, "response.status must be a number");
-        int status_code = (int)status_val->num;
+        if (status_val)
+        {
+            if (status_val->type != VAL_NUMBER)
+                fatal_script_error(ctx->call_line, ctx->call_column, "response.status must be a number");
+        long long status_code = 0;
+        number_to_long(status_val->number, &status_code, ctx->call_line, ctx->call_column);
         if (!http_server_response_set_status(response, status_code, NULL))
             return false;
     }
@@ -574,10 +581,12 @@ static char *parse_port(const Value *value, int line, int column)
         fatal_script_error(line, column, "server_listen requires a port");
     if (value->type == VAL_NUMBER)
     {
-        if (value->num < 0 || value->num > 65535)
+        long long port = 0;
+        number_to_long(value->number, &port, line, column);
+        if (port < 0 || port > 65535)
             fatal_script_error(line, column, "server_listen port must be between 0 and 65535");
         char buf[16];
-        snprintf(buf, sizeof(buf), "%d", (int)value->num);
+        snprintf(buf, sizeof(buf), "%lld", port);
         return duplicate_string_checked(buf, line, column, "port");
     }
     if (value->type == VAL_STRING)

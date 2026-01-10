@@ -1,6 +1,7 @@
 #include <string.h>
 #include "interpreter/builtins.h"
 #include "interpreter/module.h"
+#include "types/builtin_types.h"
 #include "types/object.h"
 #include "types/promise.h"
 #include "types/value.h"
@@ -8,7 +9,7 @@
 
 void builtins_register(Env *global_env, const char *file_path)
 {
-    const char *funcs[] = {"pr", "input", "type", "len", "bool", "int", "float",
+    const char *funcs[] = {"pr", "input", "type", "type_name", "len", "bool", "int", "float",
                             "str", "list", "dict", "range", "register_modifier", "register_decorator",
                             "server_listen", "json_stringify", "json_parse", "read_text_file",
                             "string_trim", "string_split", "string_join", "string_replace",
@@ -28,6 +29,7 @@ void builtins_register(Env *global_env, const char *file_path)
     set_variable(global_env, "__file__", filev);
     Value promise_ns = promise_namespace_value();
     set_variable(global_env, "Promise", promise_ns);
+    builtin_types_register(global_env);
 
     /* Load Able-defined built-ins from lib/builtins.abl */
     Value mod = import_module_value("builtins", 0, 0);

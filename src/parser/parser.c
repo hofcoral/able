@@ -4,6 +4,7 @@
 
 #include "parser/parser.h"
 #include "types/value.h"
+#include "types/number.h"
 #include "lexer/lexer.h"
 #include "types/function.h"
 #include "types/object.h"
@@ -216,7 +217,7 @@ static ASTNode *parse_literal_node()
     else if (current.type == TOKEN_NUMBER)
     {
         n->data.lit.literal_value.type = VAL_NUMBER;
-        n->data.lit.literal_value.num = atof(current.value);
+        n->data.lit.literal_value.number = number_from_string(current.value, current.line, current.column);
         advance_token();
     }
     else if (current.type == TOKEN_TRUE || current.type == TOKEN_FALSE)
@@ -560,7 +561,7 @@ static ASTNode *parse_unary()
         ASTNode *right = parse_unary();
         ASTNode *zero = new_node(NODE_LITERAL, prev_line, prev_col);
         zero->data.lit.literal_value.type = VAL_NUMBER;
-        zero->data.lit.literal_value.num = 0;
+        zero->data.lit.literal_value.number = number_from_int(0);
         ASTNode *n = new_node(NODE_BINARY, prev_line, prev_col);
         n->data.binary.op = OP_SUB;
         add_child(n, zero);
@@ -626,6 +627,7 @@ static ASTNode *parse_comparison()
 {
     ASTNode *node = parse_arithmetic();
     while (current.type == TOKEN_EQ || current.type == TOKEN_STRICT_EQ ||
+           current.type == TOKEN_IS ||
            current.type == TOKEN_LT || current.type == TOKEN_GT ||
            current.type == TOKEN_LTE || current.type == TOKEN_GTE)
     {
@@ -637,6 +639,9 @@ static ASTNode *parse_comparison()
             break;
         case TOKEN_STRICT_EQ:
             op = OP_STRICT_EQ;
+            break;
+        case TOKEN_IS:
+            op = OP_IS;
             break;
         case TOKEN_LT:
             op = OP_LT;

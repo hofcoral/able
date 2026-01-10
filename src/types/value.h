@@ -9,6 +9,7 @@ struct List;    // Forward declaration for lists
 struct Type;
 struct Instance;
 struct Promise;
+struct Number;
 
 typedef struct BoundMethod {
     struct Instance *self;
@@ -40,7 +41,7 @@ typedef struct Value
     union
     {
         bool boolean;
-        double num;
+        struct Number *number;
         char *str;
         struct Object *obj;
         struct Function *func;

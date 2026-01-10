@@ -4,13 +4,14 @@ import unittest
 from tests.integration.helpers import AbleTestCase
 
 TYPE_EXAMPLES = {
-    'examples/types/string_type.abl': 'STRING\n',
-    'examples/types/number_type.abl': 'NUMBER\n',
-    'examples/types/boolean_type.abl': 'BOOLEAN\n',
-    'examples/types/null_type.abl': 'NULL\n',
-    'examples/types/object_type.abl': 'OBJECT\n',
-    'examples/types/function_type.abl': 'FUNCTION\n',
-    'examples/types/list_type.abl': 'LIST\n',
+    'examples/types/string_type.abl': 'true\n',
+    'examples/types/number_type.abl': 'true\n',
+    'examples/types/boolean_type.abl': 'true\n',
+    'examples/types/null_type.abl': 'true\n',
+    'examples/types/object_type.abl': 'true\n',
+    'examples/types/function_type.abl': 'true\n',
+    'examples/types/list_type.abl': 'true\n',
+    'examples/types/type_name.abl': 'Number\nString\nBoolean\nList\nObject\nNull\nFunction\nNumber\nPromise\ntrue\n',
 }
 
 class TypeTests(AbleTestCase):

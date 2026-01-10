@@ -17,14 +17,14 @@ fun _bind_handler(instance, handler_fn):
 fun _resolve_handler(instance, handler_value):
     if not is_callable(handler_value):
         return null
-    if type(handler_value) == "FUNCTION":
+    if handler_value is Function:
         return _bind_handler(instance, handler_value)
     return handler_value
 
 
 fun _clone_list(entries_list):
     cloned = []
-    if type(entries_list) == "LIST":
+    if entries_list is List:
         for entry of entries_list:
             cloned.append(entry)
     return cloned
@@ -32,7 +32,7 @@ fun _clone_list(entries_list):
 fun _collect_middleware_entries(target):
     collected = []
     middleware_entries = get_middleware(target)
-    if type(middleware_entries) == "LIST":
+    if middleware_entries is List:
         for entry of middleware_entries:
             if not is_callable(entry):
                 continue
@@ -64,12 +64,12 @@ fun _build_route_record(controller_cls, instance, base_path, router_entry_item, 
     router_result.record = null
     router_result.error = null
     router_method_value = router_entry_item.verb
-    if type(router_method_value) == "UNDEFINED" or router_method_value == null:
+    if router_method_value is Undefined or router_method_value == null:
         router_method_value = router_entry_item.method
-    if type(router_method_value) == "UNDEFINED" or router_method_value == null:
+    if router_method_value is Undefined or router_method_value == null:
         router_method_value = ""
     router_path_value = router_entry_item.path
-    if type(router_path_value) == "UNDEFINED" or router_path_value == null:
+    if router_path_value is Undefined or router_path_value == null:
         router_path_value = "/"
     router_joined_path = join_path(base_path, router_path_value)
     if router_method_value == "":
@@ -101,14 +101,14 @@ fun build_routes_with_errors(router_registry):
     router_routes = []
     router_errors = []
     router_keys = []
-    if type(router_registry) == "LIST":
+    if router_registry is List:
         for controller_entry of router_registry:
-            if type(controller_entry) == "TYPE":
+            if controller_entry is Type:
                 controller_instance = controller_entry()
                 base_path_value = normalize_path(get_base_path(controller_entry))
                 route_defs = get_routes(controller_entry)
                 controller_middleware = _collect_middleware_entries(controller_entry)
-                if type(route_defs) == "LIST":
+                if route_defs is List:
                     for route_item of route_defs:
                         record_result = _build_route_record(controller_entry, controller_instance, base_path_value, route_item, controller_middleware)
                         if not (record_result.record == null):
@@ -132,7 +132,7 @@ fun build_routes(router_registry):
 fun build_route_index(router_routes):
     router_index = {}
     router_entries = []
-    if type(router_routes) == "LIST":
+    if router_routes is List:
         for route_entry of router_routes:
             router_index_entry = {}
             router_index_entry.key = route_entry.key
@@ -144,9 +144,9 @@ fun build_route_index(router_routes):
     return router_index
 
 fun find_route(router_index, method_value, path_value):
-    if type(router_index) == "OBJECT":
+    if router_index is Object:
         router_entries = router_index.entries
-        if type(router_entries) == "LIST":
+        if router_entries is List:
             router_key = _create_route_key(method_value, to_string(path_value, "/"))
             for router_entry of router_entries:
                 if router_entry.key == router_key:

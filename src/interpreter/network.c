@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "types/object.h"
+#include "types/number.h"
 #include "utils/http_client.h"
 #include "utils/utils.h"
 
@@ -85,9 +86,15 @@ static char *value_to_string(const Value *value, const char *field, int line, in
         return duplicate_string(value->str ? value->str : "");
     case VAL_NUMBER:
     {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.15g", value->num);
-        return strdup(buf);
+        char *text = number_to_string(value->number);
+        if (!text)
+        {
+            log_script_error(line, column, "%s must be a string-compatible value", field);
+            exit(1);
+        }
+        char *copy = strdup(text);
+        free(text);
+        return copy;
     }
     case VAL_BOOL:
         return strdup(value->boolean ? "true" : "false");
@@ -161,8 +168,9 @@ static Value build_response_value(const char *method, const HttpResponse *respon
         exit(1);
     }
 
-    Value status_val = {.type = VAL_NUMBER, .num = (double)response->status_code};
+    Value status_val = {.type = VAL_NUMBER, .number = number_from_int(response->status_code)};
     object_set(root, "status", status_val);
+    free_value(status_val);
 
     Value ok_val = {.type = VAL_BOOL, .boolean = response->status_code >= 200 && response->status_code < 300};
     object_set(root, "ok", ok_val);
