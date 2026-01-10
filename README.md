@@ -14,7 +14,7 @@ This compiles the interpreter to `build/able_exe`.
 
 ## Running Able Files
 
-Execute an `.abl` file with:
+Execute an Able file with the `.abl` extension:
 
 ```sh
 ./build/able_exe path/to/script.abl
