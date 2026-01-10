@@ -1,144 +1,157 @@
 from server.annotations import get_base_path, get_routes, get_middleware
-from server.shared import to_string, is_callable
+from server.shared import to_string, is_callable, normalize_path, join_path
 
-fun _join_path(base_path, method_path):
-    base = to_string(base_path, "/")
-    method = to_string(method_path, "/")
-    if base == "/":
-        if method == "/" or method == "":
-            return "/"
-        return method
-    if method == "/" or method == "":
-        return base
-    return base + method
+_ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
-fun _bind_handler(instance, handler):
+fun _is_allowed_method(router_method_value):
+    for allowed of _ALLOWED_METHODS:
+        if allowed == router_method_value:
+            return true
+    return false
+
+fun _bind_handler(instance, handler_fn):
     fun bound(request):
-        return handler(instance, request)
+        return handler_fn(instance, request)
     return bound
 
-fun _resolve_handler(instance, handler):
-    if not is_callable(handler):
+fun _resolve_handler(instance, handler_value):
+    if not is_callable(handler_value):
         return null
-    if type(handler) == "FUNCTION":
-        return _bind_handler(instance, handler)
-    return handler
+    if type(handler_value) == "FUNCTION":
+        return _bind_handler(instance, handler_value)
+    return handler_value
 
-fun _extract_method(route):
-    method = route.method
-    if type(method) == "UNDEFINED" or method == null:
-        method = route.verb
-    if type(method) == "UNDEFINED" or method == null:
-        return null
-    return to_string(method, "")
 
-fun _extract_path(route):
-    path = route.path
-    if type(path) == "UNDEFINED" or path == null:
-        return "/"
-    return to_string(path, "/")
-
-fun _clone_list(items):
+fun _clone_list(entries_list):
     cloned = []
-    if type(items) == "LIST":
-        for entry of items:
+    if type(entries_list) == "LIST":
+        for entry of entries_list:
             cloned.append(entry)
     return cloned
 
 fun _collect_middleware_entries(target):
     collected = []
-    entries = get_middleware(target)
-    if type(entries) == "LIST":
-        for entry of entries:
+    middleware_entries = get_middleware(target)
+    if type(middleware_entries) == "LIST":
+        for entry of middleware_entries:
             if not is_callable(entry):
                 continue
             collected.append(entry)
     return collected
 
-fun _normalize_method(method):
-    return to_string(method, "")
+fun _normalize_method(method_value):
+    return to_string(method_value, "")
 
-fun _create_route_key(method, path):
-    return _normalize_method(method) + " " + path
+fun _create_route_key(route_method_value, route_path_value):
+    return _normalize_method(route_method_value) + " " + route_path_value
 
-fun _build_route_record(controller_cls, instance, base_path, definition, controller_middleware):
-    method = _extract_method(definition)
-    if method == null or method == "":
-        return null
-    joined_path = _join_path(base_path, _extract_path(definition))
-    handler = _resolve_handler(instance, definition.handler)
-    if handler == null:
-        return null
-    route_middleware = _collect_middleware_entries(definition.handler)
-    record = {}
-    record.method = _normalize_method(method)
-    record.path = joined_path
-    record.key = _create_route_key(record.method, record.path)
-    record.handler = handler
-    record.action = definition.handler
-    record.controller = instance
-    record.controller_class = controller_cls
-    record.controller_middleware = _clone_list(controller_middleware)
-    record.route_middleware = route_middleware
-    return record
+fun _build_error(error_kind, error_method, error_path, error_handler):
+    error_entry = {}
+    error_entry.type = error_kind
+    error_entry.method = error_method
+    error_entry.path = error_path
+    error_entry.handler = error_handler
+    return error_entry
 
-fun _collect_route_records(controller_cls, instance):
-    base_path = to_string(get_base_path(controller_cls), "/")
-    definitions = get_routes(controller_cls)
-    records = []
-    controller_middleware = _collect_middleware_entries(controller_cls)
-    if type(definitions) == "LIST":
-        for definition of definitions:
-            record = _build_route_record(controller_cls, instance, base_path, definition, controller_middleware)
-            if record == null:
-                continue
-            records.append(record)
-    return records
+fun _build_route_record(controller_cls, instance, base_path, router_entry_item, controller_middleware):
+    router_result = {}
+    router_result.record = null
+    router_result.error = null
+    router_method_value = router_entry_item.verb
+    if type(router_method_value) == "UNDEFINED" or router_method_value == null:
+        router_method_value = router_entry_item.method
+    if type(router_method_value) == "UNDEFINED" or router_method_value == null:
+        router_method_value = ""
+    router_path_value = router_entry_item.path
+    if type(router_path_value) == "UNDEFINED" or router_path_value == null:
+        router_path_value = "/"
+    router_joined_path = join_path(base_path, router_path_value)
+    if router_method_value == "":
+        router_result.error = _build_error("missing_method", router_method_value, router_joined_path, router_entry_item.handler)
+        return router_result
+    router_method_value = _normalize_method(router_method_value)
+    if not _is_allowed_method(router_method_value):
+        router_result.error = _build_error("invalid_method", router_method_value, router_joined_path, router_entry_item.handler)
+        return router_result
+    router_handler_value = _resolve_handler(instance, router_entry_item.handler)
+    if router_handler_value == null:
+        router_result.error = _build_error("invalid_handler", router_method_value, router_joined_path, router_entry_item.handler)
+        return router_result
+    router_middleware = _collect_middleware_entries(router_entry_item.handler)
+    router_record = {}
+    router_record.method = router_method_value
+    router_record.path = router_joined_path
+    router_record.key = _create_route_key(router_record.method, router_record.path)
+    router_record.handler = router_handler_value
+    router_record.action = router_entry_item.handler
+    router_record.controller = instance
+    router_record.controller_class = controller_cls
+    router_record.controller_middleware = _clone_list(controller_middleware)
+    router_record.route_middleware = router_middleware
+    router_result.record = router_record
+    return router_result
 
-fun build_routes(registry):
-    routes = []
-    if type(registry) == "LIST":
-        for entry of registry:
-            if type(entry) == "TYPE":
-                controller_instance = entry()
-                controller_routes = _collect_route_records(entry, controller_instance)
-                for route of controller_routes:
-                    routes.append(route)
-    return routes
+fun build_routes_with_errors(router_registry):
+    router_routes = []
+    router_errors = []
+    if type(router_registry) == "LIST":
+        for controller_entry of router_registry:
+            if type(controller_entry) == "TYPE":
+                controller_instance = controller_entry()
+                base_path_value = normalize_path(get_base_path(controller_entry))
+                route_defs = get_routes(controller_entry)
+                controller_middleware = _collect_middleware_entries(controller_entry)
+                if type(route_defs) == "LIST":
+                    for route_item of route_defs:
+                        record_result = _build_route_record(controller_entry, controller_instance, base_path_value, route_item, controller_middleware)
+                        if not (record_result.record == null):
+                            router_routes.append(record_result.record)
+                        if not (record_result.error == null):
+                            router_errors.append(record_result.error)
+    router_result = {}
+    router_result.routes = router_routes
+    router_result.errors = router_errors
+    return router_result
 
-fun build_route_index(routes):
-    index = {}
-    entries = []
-    if type(routes) == "LIST":
-        for route of routes:
-            entry = {}
-            entry.key = route.key
-            entry.method = route.method
-            entry.path = route.path
-            entry.route = route
-            entries.append(entry)
-    index.entries = entries
-    return index
+fun build_routes(router_registry):
+    router_result = build_routes_with_errors(router_registry)
+    return router_result.routes
 
-fun find_route(index, method, path):
-    if type(index) == "OBJECT":
-        entries = index.entries
-        if type(entries) == "LIST":
-            key = _create_route_key(method, to_string(path, "/"))
-            for entry of entries:
-                if entry.key == key:
-                    return entry.route
+fun build_route_index(router_routes):
+    router_index = {}
+    router_entries = []
+    if type(router_routes) == "LIST":
+        for route_entry of router_routes:
+            router_index_entry = {}
+            router_index_entry.key = route_entry.key
+            router_index_entry.method = route_entry.method
+            router_index_entry.path = route_entry.path
+            router_index_entry.route = route_entry
+            router_entries.append(router_index_entry)
+    router_index.entries = router_entries
+    return router_index
+
+fun find_route(router_index, method_value, path_value):
+    if type(router_index) == "OBJECT":
+        router_entries = router_index.entries
+        if type(router_entries) == "LIST":
+            router_key = _create_route_key(method_value, to_string(path_value, "/"))
+            for router_entry of router_entries:
+                if router_entry.key == router_key:
+                    return router_entry.route
     return null
 
-fun create_router(registry):
-    routes = build_routes(registry)
-    index = build_route_index(routes)
-    router = {}
-    router.routes = routes
-    router.index = index
+fun create_router(router_registry):
+    router_result = build_routes_with_errors(router_registry)
+    router_routes = router_result.routes
+    router_index = build_route_index(router_routes)
+    router_ctx = {}
+    router_ctx.routes = router_routes
+    router_ctx.index = router_index
+    router_ctx.errors = router_result.errors
 
-    fun match(method, path):
-        return find_route(index, method, path)
+    fun match(method_value, path_value):
+        return find_route(router_index, method_value, path_value)
 
-    router.match = match
-    return router
+    router_ctx.match = match
+    return router_ctx

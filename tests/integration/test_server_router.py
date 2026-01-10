@@ -18,6 +18,13 @@ class ServerRouterTests(AbleTestCase):
             'controller\nGET /api\n1\n0\nPOST /api/items\n1\ntrue\n',
         )
 
+    def test_router_validation(self):
+        output = self.run_script('examples/server/router_validate.abl')
+        self.assertEqual(
+            output,
+            '0\n1\ninvalid_method\nFETCH\n/api/items\n',
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
