@@ -94,6 +94,39 @@ sleep(1)
 pr(time() - start >= 1)
 ```
 
+String and path helpers are available too:
+
+```able
+from string import trim, split, join
+from path import normalize
+
+pr(trim("  Able  "))
+pr(join(split("a,b,c", ","), "-"))
+pr(normalize("/api"))
+```
+
+## Language Notes
+
+- Assignments inside functions are local to that function and do not mutate outer scope variables.
+- `null` prints as `null`; `undefined` prints as `undefined`.
+
+```able
+x = 5
+
+fun bump(x):
+    x = x + 1
+    return x
+
+pr(bump(1))
+pr(x)
+```
+
+## Documentation
+
+- `docs/README.md` - entry point for reference material and guides.
+- `docs/reference/README.md` - language reference topics.
+- `docs/MAINTENANCE.md` - interpreter architecture and contributor workflow.
+
 Custom modules can also be loaded from the working directory:
 
 ```able
