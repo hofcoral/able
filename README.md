@@ -103,6 +103,42 @@ pr(greet("Codex"))
 
 Functions or variables marked with `@private` will not be exported when the module is imported.
 
+## API Router
+
+Able ships with a tiny annotation-driven router helper in `api`. It converts
+annotation metadata into the `{ method, path, handler }` records expected by
+`server_listen`:
+
+```able
+from api import router, Route, Get, Post
+
+ROUTER = router()
+
+@Route("/api")
+class UserController():
+    @Get
+    fun index(this, request):
+        return "ok"
+
+    @Post("/users")
+    fun create(this, request):
+        return "created"
+
+@Get("/health")
+fun health(request):
+    return "ok"
+
+ROUTER.register(health)
+
+server_listen({
+    host: "127.0.0.1",
+    port: 8080,
+    routes: ROUTER.build()
+})
+```
+
+`ROUTER.build()` also populates `ROUTER.errors` with any invalid route metadata.
+
 ## Development
 
 - Source code lives in `src/`.

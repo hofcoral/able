@@ -1,0 +1,238 @@
+# Minimal annotation-driven router for server_listen.
+#
+# Example:
+# from api import router, Route, get
+# ROUTER = router()
+#
+# @Route("/api")
+# class UserController():
+#     @get
+#     fun index(this, request):
+#         return "ok"
+#
+# @get("/health")
+# fun health(request):
+#     return "ok"
+#
+# ROUTER.register(health)
+# server_listen({ routes: ROUTER.build() })
+
+from server.annotations import route, get, post, put, patch, delete, options, head, get_base_path, get_routes
+from server.shared import to_string, is_callable
+
+_ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+_default_router = null
+
+fun _is_allowed_method(method):
+    for allowed of _ALLOWED_METHODS:
+        if allowed == method:
+            return true
+    return false
+
+fun _normalize_path(path):
+    return to_string(path, "/")
+
+fun _join_path(base_path, method_path):
+    base = _normalize_path(base_path)
+    method = _normalize_path(method_path)
+    if base == "/":
+        if method == "/" or method == "":
+            return "/"
+        return method
+    if method == "/" or method == "":
+        return base
+    return base + method
+
+fun _bind_handler(instance, handler):
+    fun bound(request):
+        return handler(instance, request)
+    return bound
+
+fun _resolve_handler(instance, handler):
+    if not is_callable(handler):
+        return null
+    if type(handler) == "FUNCTION":
+        if instance == null:
+            return handler
+        return _bind_handler(instance, handler)
+    return handler
+
+fun _normalize_method(method):
+    return to_string(method, "")
+
+fun _build_error(kind, method, path, handler):
+    entry = {}
+    entry.type = kind
+    entry.method = method
+    entry.path = path
+    entry.handler = handler
+    return entry
+
+fun _build_route_record(instance, base_path, route_entry):
+    result = {}
+    result.record = null
+    result.error = null
+    if not (type(route_entry) == "OBJECT"):
+        return result
+    method = route_entry.verb
+    if type(method) == "UNDEFINED" or method == null:
+        method = route_entry.method
+    method_text = _normalize_method(method)
+    path = _join_path(base_path, route_entry.path)
+    if method_text == "":
+        result.error = _build_error("missing_method", method_text, path, route_entry.handler)
+        return result
+    if not _is_allowed_method(method_text):
+        result.error = _build_error("invalid_method", method_text, path, route_entry.handler)
+        return result
+    handler = _resolve_handler(instance, route_entry.handler)
+    if handler == null:
+        result.error = _build_error("invalid_handler", method_text, path, route_entry.handler)
+        return result
+    record = {}
+    record.method = method_text
+    record.path = path
+    record.handler = handler
+    result.record = record
+    return result
+
+fun _build_routes_from_registry(registry):
+    routes = []
+    errors = []
+    if type(registry) == "LIST":
+        for entry of registry:
+            if type(entry) == "TYPE":
+                instance = entry()
+                base_path = get_base_path(entry)
+                definitions = get_routes(entry)
+                if type(definitions) == "LIST":
+                    for route_def of definitions:
+                        result = _build_route_record(instance, base_path, route_def)
+                        if not (result.record == null):
+                            routes.append(result.record)
+                        if not (result.error == null):
+                            errors.append(result.error)
+            elif is_callable(entry):
+                base_path = get_base_path(entry)
+                definitions = get_routes(entry)
+                if type(definitions) == "LIST":
+                    for route_def of definitions:
+                        result = _build_route_record(null, base_path, route_def)
+                        if not (result.record == null):
+                            routes.append(result.record)
+                        if not (result.error == null):
+                            errors.append(result.error)
+    result = {}
+    result.routes = routes
+    result.errors = errors
+    return result
+
+fun _register_route(router_ctx, decorator, route_arg):
+    if type(route_arg) == "FUNCTION":
+        decorated = decorator(route_arg)
+        router_ctx.register(decorated)
+        return decorated
+    inner = decorator(route_arg)
+    fun decorate(target):
+        updated = inner(target)
+        router_ctx.register(updated)
+        return updated
+    return decorate
+
+class Router():
+    fun init(this):
+        this.registry = []
+        this.errors = []
+
+    fun register(this, entry):
+        if entry == null:
+            return null
+        this.registry.append(entry)
+        return entry
+
+    fun build(this):
+        result = _build_routes_from_registry(this.registry)
+        this.errors = result.errors
+        return result.routes
+
+    fun get(this, route_arg):
+        return _register_route(this, get, route_arg)
+
+    fun post(this, route_arg):
+        return _register_route(this, post, route_arg)
+
+    fun put(this, route_arg):
+        return _register_route(this, put, route_arg)
+
+    fun patch(this, route_arg):
+        return _register_route(this, patch, route_arg)
+
+    fun delete(this, route_arg):
+        return _register_route(this, delete, route_arg)
+
+    fun options(this, route_arg):
+        return _register_route(this, options, route_arg)
+
+    fun head(this, route_arg):
+        return _register_route(this, head, route_arg)
+
+fun router():
+    if _default_router == null:
+        _default_router = Router()
+    return _default_router
+
+fun _default():
+    if _default_router == null:
+        _default_router = Router()
+    return _default_router
+
+fun Route(arg):
+    target_router = _default()
+    if type(arg) == "TYPE":
+        decorated = route(arg)
+        target_router.register(decorated)
+        return decorated
+    base_path = arg
+    fun decorate(target):
+        decorated = route(base_path)(target)
+        target_router.register(decorated)
+        return decorated
+    return decorate
+
+register_decorator("Route", Route)
+
+fun Get(arg):
+    return get(arg)
+
+fun Post(arg):
+    return post(arg)
+
+fun Put(arg):
+    return put(arg)
+
+fun Patch(arg):
+    return patch(arg)
+
+fun Delete(arg):
+    return delete(arg)
+
+fun Options(arg):
+    return options(arg)
+
+fun Head(arg):
+    return head(arg)
+
+register_decorator("Get", Get)
+register_decorator("Post", Post)
+register_decorator("Put", Put)
+register_decorator("Patch", Patch)
+register_decorator("Delete", Delete)
+register_decorator("Options", Options)
+register_decorator("Head", Head)
+
+fun build_routes(registry):
+    if type(registry) == "INSTANCE":
+        result = _build_routes_from_registry(registry.registry)
+        return result.routes
+    result = _build_routes_from_registry(registry)
+    return result.routes

@@ -1,0 +1,29 @@
+from api import router, Route, Get, Post
+
+class Request():
+    fun init(this, method, path):
+        this.method = method
+        this.path = path
+
+ROUTER = router()
+
+@Route("/api")
+class UserController():
+    fun init(this):
+        this.prefix = "user"
+
+    @Get
+    fun index(this, request):
+        return this.prefix + ":" + request.method
+
+    @Post("/users")
+    fun create(this, request):
+        return this.prefix + ":" + request.method
+
+routes = ROUTER.build()
+pr(len(routes))
+for route of routes:
+    pr(route.method + " " + route.path)
+    request = Request(route.method, route.path)
+    response = route.handler(request)
+    pr(response)

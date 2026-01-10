@@ -1,0 +1,26 @@
+from api import router, Get
+
+ROUTER = router()
+
+@Get("/ok")
+fun ok(request):
+    return "ok"
+ROUTER.register(ok)
+
+@Get("/bad")
+fun bad(request):
+    return "bad"
+ROUTER.register(bad)
+
+entry = bad.__abl_server_meta__.routes.get(0)
+entry.verb = "FETCH"
+bad.__abl_server_meta__.routes.set(0, entry)
+
+routes = ROUTER.build()
+pr(len(routes))
+pr(len(ROUTER.errors))
+if len(ROUTER.errors) > 0:
+    err = ROUTER.errors.get(0)
+    pr(err.type)
+    pr(err.method)
+    pr(err.path)
