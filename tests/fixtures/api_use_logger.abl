@@ -1,0 +1,23 @@
+from api import router, Route, Get, Use
+
+ROUTER = router({ logging: false })
+
+@middleware
+fun tag_request(next):
+    async fun wrapped(request):
+        request.tag = "tagged"
+        return await next(request)
+    return wrapped
+
+@Route("/")
+@Use(tag_request)
+class EntryController():
+    @Get
+    fun index(this, request):
+        return request.tag
+
+routes = ROUTER.build()
+first = routes.get(0)
+handler = first.handler
+result = await handler({ method: "GET", path: "/" })
+pr(result)

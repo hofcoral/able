@@ -1,0 +1,6 @@
+name = "Able"
+version = 1
+
+pr(f"Hello {name}")
+pr(f"{name} {version + 1}")
+pr(f"Braces {{ok}}")

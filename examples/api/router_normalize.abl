@@ -1,6 +1,6 @@
 from api import router, Route, Get
 
-ROUTER = router()
+ROUTER = router({})
 
 @Route("/api")
 class ApiController():

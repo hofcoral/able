@@ -152,6 +152,13 @@ static bool has_response_metadata(const Object *obj)
 {
     if (!obj)
         return false;
+    bool has_method = find_field((Object *)obj, "method") != NULL;
+    bool has_path = find_field((Object *)obj, "path") != NULL;
+    bool has_version = find_field((Object *)obj, "httpVersion") != NULL;
+    bool has_status = find_field((Object *)obj, "status") != NULL;
+    bool has_status_text = find_field((Object *)obj, "statusText") != NULL;
+    if (has_method && has_path && has_version && !has_status && !has_status_text)
+        return false;
     for (int i = 0; i < obj->count; ++i)
     {
         const char *key = obj->pairs[i].key;
@@ -425,10 +432,22 @@ static bool normalize_response_value(const Value *result, Value *normalized, con
 
         if (body_field && body_field->type != VAL_NULL && body_field->type != VAL_UNDEFINED)
         {
-            if (!set_plain_body(response_obj, body_field, ctx, "response.body"))
+            bool is_plain = body_field->type == VAL_STRING || body_field->type == VAL_NUMBER || body_field->type == VAL_BOOL;
+            if (is_plain)
             {
-                free_object(response_obj);
-                return false;
+                if (!set_plain_body(response_obj, body_field, ctx, "response.body"))
+                {
+                    free_object(response_obj);
+                    return false;
+                }
+            }
+            else
+            {
+                if (!set_json_body(response_obj, body_field, ctx))
+                {
+                    free_object(response_obj);
+                    return false;
+                }
             }
         }
         break;

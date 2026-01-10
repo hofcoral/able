@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +40,8 @@ static ASTNode *parse_object_literal();
 static ASTNode *parse_method_def(char *name, bool is_static, bool is_async, int line, int col, Annotation **annotations, int annotation_count);
 static ASTNode *parse_class_def(Annotation **annotations, int annotation_count);
 static ASTNode *parse_argument();
+static ASTNode *parse_fstring_literal(const char *text, int line, int column);
+static void skip_literal_trivia();
 
 static bool is_identifier_like(TokenType type)
 {
@@ -208,6 +211,17 @@ static ASTNode *parse_literal_node()
 {
     ASTNode *n = new_node(NODE_LITERAL, current.line, current.column);
 
+    if (current.type == TOKEN_FSTRING)
+    {
+        char *raw = strdup(current.value);
+        int line = current.line;
+        int col = current.column;
+        advance_token();
+        ASTNode *node = parse_fstring_literal(raw, line, col);
+        free(raw);
+        free(n);
+        return node;
+    }
     if (current.type == TOKEN_STRING)
     {
         n->data.lit.literal_value.type = VAL_STRING;
@@ -721,7 +735,8 @@ static ASTNode *parse_primary()
             return finish_func_call(node);
         return node;
     }
-    else if (current.type == TOKEN_STRING || current.type == TOKEN_NUMBER ||
+    else if (current.type == TOKEN_STRING || current.type == TOKEN_FSTRING ||
+             current.type == TOKEN_NUMBER ||
              current.type == TOKEN_TRUE || current.type == TOKEN_FALSE ||
              current.type == TOKEN_NULL || current.type == TOKEN_LBRACE ||
              current.type == TOKEN_LBRACKET)
@@ -737,6 +752,213 @@ static ASTNode *parse_primary()
 
     log_script_error(current.line, current.column, "Invalid expression");
     exit(1);
+}
+
+static void fstring_append_part(ASTNode ***parts, int *count, ASTNode *node)
+{
+    *parts = realloc(*parts, sizeof(ASTNode *) * (*count + 1));
+    (*parts)[(*count)++] = node;
+}
+
+static ASTNode *fstring_make_literal(const char *text, size_t len, int line, int column)
+{
+    ASTNode *node = new_node(NODE_LITERAL, line, column);
+    node->data.lit.literal_value.type = VAL_STRING;
+    node->data.lit.literal_value.str = strndup(text, len);
+    return node;
+}
+
+static ASTNode *fstring_wrap_str(ASTNode *expr, int line, int column)
+{
+    ASTNode *callee = new_var_node(strdup("str"), line, column);
+    ASTNode *call = new_func_call_node(callee);
+    add_child(call, expr);
+    return call;
+}
+
+static ASTNode *parse_fstring_expression(const char *expr, int line, int column)
+{
+    Lexer sub_lexer;
+    lexer_init(&sub_lexer, expr);
+
+    Lexer *saved_L = L;
+    Token saved_current = current;
+    int saved_prev_line = prev_line;
+    int saved_prev_col = prev_col;
+
+    L = &sub_lexer;
+    current = next_token(L);
+    prev_line = line;
+    prev_col = column;
+
+    ASTNode *node = parse_expression();
+    if (current.type != TOKEN_EOF)
+    {
+        log_script_error(line, column, "Invalid f-string expression");
+        exit(1);
+    }
+
+    free(current.value);
+    current.value = NULL;
+
+    L = saved_L;
+    current = saved_current;
+    prev_line = saved_prev_line;
+    prev_col = saved_prev_col;
+
+    return node;
+}
+
+static ASTNode *parse_fstring_literal(const char *text, int line, int column)
+{
+    ASTNode **parts = NULL;
+    int part_count = 0;
+    char *buffer = NULL;
+    size_t buf_len = 0;
+    size_t buf_cap = 0;
+    size_t length = strlen(text);
+
+    for (size_t i = 0; i < length;)
+    {
+        char c = text[i];
+        if (c == '{')
+        {
+            if (i + 1 < length && text[i + 1] == '{')
+            {
+                if (buf_len + 1 >= buf_cap)
+                {
+                    buf_cap = buf_cap ? buf_cap * 2 : 16;
+                    buffer = realloc(buffer, buf_cap);
+                }
+                buffer[buf_len++] = '{';
+                buffer[buf_len] = '\0';
+                i += 2;
+                continue;
+            }
+
+            if (buf_len > 0)
+            {
+                fstring_append_part(&parts, &part_count,
+                                    fstring_make_literal(buffer, buf_len, line, column));
+                buf_len = 0;
+            }
+
+            size_t start = i + 1;
+            size_t j = start;
+            int depth = 0;
+            bool in_string = false;
+
+            while (j < length)
+            {
+                char ch = text[j];
+                if (in_string)
+                {
+                    if (ch == '"')
+                        in_string = false;
+                }
+                else
+                {
+                    if (ch == '"')
+                        in_string = true;
+                    else if (ch == '{')
+                        depth++;
+                    else if (ch == '}')
+                    {
+                        if (depth == 0)
+                            break;
+                        depth--;
+                    }
+                }
+                j++;
+            }
+
+            if (j >= length)
+            {
+                log_script_error(line, column, "Unterminated f-string expression");
+                exit(1);
+            }
+
+            size_t expr_start = start;
+            size_t expr_end = j;
+            while (expr_start < expr_end && isspace((unsigned char)text[expr_start]))
+                expr_start++;
+            while (expr_end > expr_start && isspace((unsigned char)text[expr_end - 1]))
+                expr_end--;
+
+            if (expr_end <= expr_start)
+            {
+                log_script_error(line, column, "Empty f-string expression");
+                exit(1);
+            }
+
+            char *expr = strndup(text + expr_start, expr_end - expr_start);
+            ASTNode *expr_node = parse_fstring_expression(expr, line, column);
+            free(expr);
+            fstring_append_part(&parts, &part_count,
+                                fstring_wrap_str(expr_node, line, column));
+
+            i = j + 1;
+            continue;
+        }
+
+        if (c == '}')
+        {
+            if (i + 1 < length && text[i + 1] == '}')
+            {
+                if (buf_len + 1 >= buf_cap)
+                {
+                    buf_cap = buf_cap ? buf_cap * 2 : 16;
+                    buffer = realloc(buffer, buf_cap);
+                }
+                buffer[buf_len++] = '}';
+                buffer[buf_len] = '\0';
+                i += 2;
+                continue;
+            }
+            log_script_error(line, column, "Unmatched '}' in f-string");
+            exit(1);
+        }
+
+        if (buf_len + 1 >= buf_cap)
+        {
+            buf_cap = buf_cap ? buf_cap * 2 : 16;
+            buffer = realloc(buffer, buf_cap);
+        }
+        buffer[buf_len++] = c;
+        buffer[buf_len] = '\0';
+        i++;
+    }
+
+    if (buf_len > 0)
+    {
+        fstring_append_part(&parts, &part_count,
+                            fstring_make_literal(buffer, buf_len, line, column));
+    }
+
+    free(buffer);
+
+    if (part_count == 0)
+    {
+        return fstring_make_literal("", 0, line, column);
+    }
+
+    ASTNode *combined = parts[0];
+    for (int i = 1; i < part_count; ++i)
+    {
+        ASTNode *bin = new_node(NODE_BINARY, line, column);
+        bin->data.binary.op = OP_ADD;
+        add_child(bin, combined);
+        add_child(bin, parts[i]);
+        combined = bin;
+    }
+    free(parts);
+    return combined;
+}
+
+static void skip_literal_trivia()
+{
+    while (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT || current.type == TOKEN_DEDENT)
+        advance_token();
 }
 
 static ASTNode *parse_postfix()
@@ -822,8 +1044,9 @@ static ASTNode *parse_object_literal()
 
     while (current.type != TOKEN_RBRACE)
     {
-        while (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT || current.type == TOKEN_DEDENT)
-            advance_token();
+        skip_literal_trivia();
+        if (current.type == TOKEN_RBRACE)
+            break;
 
         if (count == cap)
         {
@@ -847,6 +1070,7 @@ static ASTNode *parse_object_literal()
         ASTNode *val_node;
         if (match(TOKEN_COLON))
         {
+            skip_literal_trivia();
             val_node = parse_expression();
         }
         else
@@ -865,14 +1089,12 @@ static ASTNode *parse_object_literal()
 
         if (!match(TOKEN_COMMA))
         {
-            while (current.type == TOKEN_NEWLINE)
-                advance_token();
+            skip_literal_trivia();
             break;
         }
     }
 
-    while (current.type == TOKEN_NEWLINE || current.type == TOKEN_INDENT || current.type == TOKEN_DEDENT)
-        advance_token();
+    skip_literal_trivia();
 
     expect(TOKEN_RBRACE, "'}'");
 
@@ -894,9 +1116,7 @@ ASTNode *parse_list_literal()
 
     while (current.type != TOKEN_RBRACKET)
     {
-        while (current.type == TOKEN_NEWLINE)
-            advance_token();
-
+        skip_literal_trivia();
         if (current.type == TOKEN_RBRACKET)
             break;
 
@@ -905,8 +1125,7 @@ ASTNode *parse_list_literal()
 
         if (!match(TOKEN_COMMA))
         {
-            while (current.type == TOKEN_NEWLINE)
-                advance_token();
+            skip_literal_trivia();
             break;
         }
     }

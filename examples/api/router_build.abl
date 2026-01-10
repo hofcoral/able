@@ -5,7 +5,7 @@ class Request():
         this.method = method
         this.path = path
 
-ROUTER = router()
+ROUTER = router({})
 
 @Route("/api")
 class UserController():

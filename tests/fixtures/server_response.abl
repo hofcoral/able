@@ -3,13 +3,15 @@ from api import router, Route, Get
 ROUTER = router({})
 
 @Route("/")
-class HelloController():
+class EntryController():
     @Get
     fun index(this, request):
-        return "Hello, Able!"
+        return { body: { "ok": true } }
+
+port = read_text_file("build/server_port.txt")
 
 server_listen({
     host: "127.0.0.1",
-    port: 8080,
+    port: port,
     routes: ROUTER.build()
 })
