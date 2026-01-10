@@ -1,7 +1,6 @@
-from api import router, Route, Get, logger
+from api import router, Route, Get
 
-ROUTER = router()
-ROUTER.use(logger)
+ROUTER = router({})
 
 @Route("/")
 class EntryController():

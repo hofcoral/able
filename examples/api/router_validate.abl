@@ -1,6 +1,6 @@
 from api import router, Get
 
-ROUTER = router()
+ROUTER = router({})
 
 @Get("/ok")
 fun ok(request):

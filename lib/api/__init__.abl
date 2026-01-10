@@ -2,7 +2,7 @@
 #
 # Example:
 # from api import router, Route, Get
-# ROUTER = router()
+# ROUTER = router({ logging: true })
 #
 # @Route("/api")
 # class UserController():
@@ -24,9 +24,9 @@ _ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 _default_router_state = { "value": null }
 
 @middleware
-fun logger(handler):
+fun logger(next):
     async fun wrapped(request):
-        response = await handler(request)
+        response = await next(request)
         method = to_string(request.method, "")
         path = to_string(request.path, "")
         status = 200
@@ -74,12 +74,20 @@ fun _has_route_key(key_list, route_key):
             return true
     return false
 
+fun _has_middleware_entry(entries_list, entry):
+    if entries_list is List:
+        for current_entry of entries_list:
+            if current_entry == entry:
+                return true
+    return false
+
 fun _clone_list(entries_list):
     cloned = []
     if entries_list is List:
         for entry of entries_list:
             cloned.append(entry)
     return cloned
+
 
 fun _collect_middleware_entries(target):
     collected = []
@@ -112,7 +120,7 @@ fun _apply_middleware(handler, middleware_entries):
         idx = idx - 1
     return wrapped
 
-fun _build_route_record(instance, base_path, route_entry, router_middleware, controller_middleware):
+fun _build_route_record(instance, base_path, route_entry, router_middleware, controller_middleware, logging_enabled):
     result = {}
     result.record = null
     result.error = null
@@ -134,7 +142,12 @@ fun _build_route_record(instance, base_path, route_entry, router_middleware, con
         result.error = _build_error("invalid_handler", method_text, path, route_entry.handler)
         return result
     route_middleware = _collect_middleware_entries(route_entry.handler)
-    combined_middleware = _clone_list(router_middleware)
+    combined_middleware = []
+    if logging_enabled:
+        combined_middleware.append(logger)
+    if router_middleware is List:
+        for entry of router_middleware:
+            combined_middleware.append(entry)
     if controller_middleware is List:
         for entry of controller_middleware:
             combined_middleware.append(entry)
@@ -152,7 +165,7 @@ fun _build_route_record(instance, base_path, route_entry, router_middleware, con
     result.record = record
     return result
 
-fun _build_routes_from_registry(registry, router_middleware):
+fun _build_routes_from_registry(registry, router_middleware, logging_enabled):
     routes = []
     errors = []
     route_keys = []
@@ -166,7 +179,7 @@ fun _build_routes_from_registry(registry, router_middleware):
                 controller_middleware = _collect_middleware_entries(entry)
                 if definitions is List:
                     for route_def of definitions:
-                        result = _build_route_record(instance, base_path, route_def, router_middleware, controller_middleware)
+                        result = _build_route_record(instance, base_path, route_def, router_middleware, controller_middleware, logging_enabled)
                         if not (result.record == null):
                             key = result.record.method + " " + result.record.path
                             if _has_route_key(route_keys, key):
@@ -181,7 +194,7 @@ fun _build_routes_from_registry(registry, router_middleware):
                 definitions = get_routes(entry)
                 if definitions is List:
                     for route_def of definitions:
-                        result = _build_route_record(null, base_path, route_def, router_middleware, [])
+                        result = _build_route_record(null, base_path, route_def, router_middleware, [], logging_enabled)
                         if not (result.record == null):
                             key = result.record.method + " " + result.record.path
                             if _has_route_key(route_keys, key):
@@ -213,6 +226,7 @@ class Router():
         this.registry = []
         this.errors = []
         this.middleware = []
+        this.logging = false
 
     fun register(this, entry):
         if entry == null:
@@ -221,14 +235,15 @@ class Router():
         return entry
 
     fun build(this):
-        result = _build_routes_from_registry(this.registry, this.middleware)
+        result = _build_routes_from_registry(this.registry, this.middleware, this.logging)
         this.errors = result.errors
         return result.routes
 
     fun use(this, entries):
         normalized = _normalize_middleware_entries(entries)
         for entry of normalized:
-            this.middleware.append(entry)
+            if not _has_middleware_entry(this.middleware, entry):
+                this.middleware.append(entry)
         return this
 
     fun get(this, route_arg):
@@ -259,8 +274,12 @@ fun _get_default_router():
         _default_router_state.value = current
     return current
 
-fun router():
-    return _get_default_router()
+fun router(options):
+    current = _get_default_router()
+    if options is Object:
+        if options.logging is Boolean:
+            current.logging = options.logging
+    return current
 
 fun _default():
     return _get_default_router()
@@ -315,7 +334,7 @@ register_decorator("Use", Use)
 
 fun build_routes(registry):
     if registry is Instance:
-        result = _build_routes_from_registry(registry.registry, registry.middleware)
+        result = _build_routes_from_registry(registry.registry, registry.middleware, registry.logging)
         return result.routes
-    result = _build_routes_from_registry(registry, [])
+    result = _build_routes_from_registry(registry, [], false)
     return result.routes

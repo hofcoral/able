@@ -33,6 +33,14 @@ class ApiRouterTests(AbleTestCase):
         output = self.run_script('tests/fixtures/api_logger.abl')
         self.assertEqual(output, 'GET / 200\nok\n')
 
+    def test_logging_disabled(self):
+        output = self.run_script('tests/fixtures/api_router_no_logging.abl')
+        self.assertEqual(output, 'ok\n')
+
+    def test_use_decorator(self):
+        output = self.run_script('tests/fixtures/api_use_logger.abl')
+        self.assertEqual(output, 'tagged\n')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -153,7 +153,7 @@ annotation metadata into the `{ method, path, handler }` records expected by
 ```able
 from api import router, Route, Get, Post
 
-ROUTER = router()
+ROUTER = router({ logging: true })
 
 @Route("/api")
 class UserController():
@@ -184,11 +184,20 @@ Handlers can return plain values (string/number/bool) for text responses, or
 objects/lists to send JSON. When returning a response object, `body` may also be
 an object/list and will be JSON serialized automatically.
 
-To enable request logging, use the built-in middleware:
+Logging is off by default. Enable it when creating a router:
 
 ```able
-from api import logger
-ROUTER.use(logger)
+ROUTER = router({ logging: true })
+```
+
+Attach middleware at the controller or route level with `@Use`:
+
+```able
+from api import Use, logger
+
+@Use(logger)
+class UserController():
+    ...
 ```
 
 ## Development
