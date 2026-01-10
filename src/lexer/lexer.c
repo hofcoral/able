@@ -203,6 +203,17 @@ Token next_token(Lexer *lexer)
 
         size_t len = &lexer->source[lexer->pos] - start;
 
+        if (len == 1 && start[0] == 'f' && peek(lexer) == '"')
+        {
+            advance(lexer);
+            const char *str_start = &lexer->source[lexer->pos];
+            while (peek(lexer) != '"' && peek(lexer) != '\0')
+                advance(lexer);
+
+            size_t str_len = &lexer->source[lexer->pos] - str_start;
+            match(lexer, '"');
+            return make_token(TOKEN_FSTRING, str_start, str_len, lexer->line, column);
+        }
         if (len == 3 && strncmp(start, "fun", len) == 0)
             return make_token(TOKEN_FUN, start, len, lexer->line, column);
         if (len == 2 && strncmp(start, "if", len) == 0)

@@ -871,6 +871,26 @@ static Value exec_func_call(ASTNode *n)
             return (Value){.type = VAL_STRING, .str = strdup(arg.boolean ? "true" : "false")};
         case VAL_STRING:
             return clone_value(&arg);
+        case VAL_LIST:
+        case VAL_OBJECT:
+        {
+            char *json = NULL;
+            char *error = NULL;
+            if (!json_stringify_value(&arg, &json, &error))
+            {
+                if (error)
+                {
+                    log_script_error(n->line, n->column, "str() failed: %s", error);
+                    free(error);
+                }
+                else
+                {
+                    log_script_error(n->line, n->column, "str() failed");
+                }
+                exit(1);
+            }
+            return (Value){.type = VAL_STRING, .str = json};
+        }
         default:
             log_script_error(n->line, n->column, "str() unsupported type");
             exit(1);

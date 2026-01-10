@@ -35,6 +35,8 @@ EXAMPLES = {
     'examples/variables/ternary.abl': 'yes\nno\n',
     'examples/variables/list_literal_expr.abl': '3\n6\nab\n',
     'examples/closure.abl': 'hello\n',
+    'examples/string/fstring_basic.abl': 'Hello Able\nAble 2\nBraces {ok}\n',
+    'examples/string/str_containers.abl': '[1,2,3]\n{"name":"Able","ok":true}\n',
 }
 
 class ExampleTests(AbleTestCase):
