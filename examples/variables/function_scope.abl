@@ -1,0 +1,8 @@
+x = 5
+
+fun bump(x):
+    x = x + 1
+    return x
+
+pr(bump(1))
+pr(x)

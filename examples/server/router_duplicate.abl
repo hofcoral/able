@@ -1,0 +1,23 @@
+from server.router import create_router
+from server.annotations import route, get
+
+@route("/api")
+class FirstController():
+    @get("/items")
+    fun list(this, request):
+        return "first"
+
+@route("/api")
+class SecondController():
+    @get("/items")
+    fun list(this, request):
+        return "second"
+
+router = create_router([FirstController, SecondController])
+pr(len(router.routes))
+pr(len(router.errors))
+if len(router.errors) > 0:
+    err = router.errors[0]
+    pr(err.type)
+    pr(err.method)
+    pr(err.path)

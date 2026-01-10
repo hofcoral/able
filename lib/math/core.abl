@@ -1,7 +1,13 @@
 fun add(a, b):
+    if not (type(a) == "NUMBER") or not (type(b) == "NUMBER"):
+        return null
     return a + b
 
 fun sqrt(x):
+    if not (type(x) == "NUMBER"):
+        return null
+    if x < 0:
+        return null
     guess = x / 2
     epsilon = 1 / 100000
     while abs(guess * guess - x) > epsilon:
@@ -9,18 +15,24 @@ fun sqrt(x):
     return guess
 
 fun floor(x):
+    if not (type(x) == "NUMBER"):
+        return null
     i = int(x)
     if i > x:
         return i - 1
     return i
 
 fun ceil(x):
+    if not (type(x) == "NUMBER"):
+        return null
     i = int(x)
     if i < x:
         return i + 1
     return i
 
 fun round(x):
+    if not (type(x) == "NUMBER"):
+        return null
     if x >= 0:
         return int(x + 1 / 2)
     return int(x - 1 / 2)

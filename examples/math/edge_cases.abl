@@ -1,0 +1,7 @@
+from math import sqrt, floor, ceil, round, add
+
+pr(type(sqrt(-1)))
+pr(type(floor("nope")))
+pr(type(ceil("nope")))
+pr(type(round("nope")))
+pr(type(add("nope", 1)))

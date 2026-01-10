@@ -10,7 +10,10 @@ void builtins_register(Env *global_env, const char *file_path)
 {
     const char *funcs[] = {"pr", "input", "type", "len", "bool", "int", "float",
                             "str", "list", "dict", "range", "register_modifier", "register_decorator",
-                            "server_listen", "json_stringify", "json_parse", "read_text_file"};
+                            "server_listen", "json_stringify", "json_parse", "read_text_file",
+                            "string_trim", "string_split", "string_join", "string_replace",
+                            "string_contains", "string_starts_with", "string_ends_with",
+                            "string_lower", "string_upper"};
     Value undef = {.type = VAL_UNDEFINED};
     for (size_t i = 0; i < sizeof(funcs) / sizeof(funcs[0]); ++i)
         set_variable(global_env, funcs[i], undef);

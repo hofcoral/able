@@ -1,29 +1,25 @@
-fun to_string(value, fallback):
-    if type(value) == "UNDEFINED" or value == null:
-        return fallback
-    if type(value) == "STRING":
-        if value == "":
-            return fallback
-        return value
-    text = str(value)
-    if text == "":
-        return fallback
-    return text
+from path import to_string, normalize, join
 
-fun is_callable(value):
-    t = type(value)
+fun normalize_path(path_value):
+    return normalize(path_value)
+
+fun join_path(base_value, segment_value):
+    return join(base_value, segment_value)
+
+fun is_callable(call_value):
+    t = type(call_value)
     return t == "FUNCTION" or t == "BOUND_METHOD"
 
-fun to_list(value):
-    if type(value) == "LIST":
-        return value
+fun to_list(list_value):
+    if type(list_value) == "LIST":
+        return list_value
     items = []
-    if type(value) == "UNDEFINED" or value == null:
+    if type(list_value) == "UNDEFINED" or list_value == null:
         return items
-    items.append(value)
+    items.append(list_value)
     return items
 
-fun clone_object(value):
-    if type(value) == "OBJECT":
-        return dict(value)
+fun clone_object(obj_value):
+    if type(obj_value) == "OBJECT":
+        return dict(obj_value)
     return {}

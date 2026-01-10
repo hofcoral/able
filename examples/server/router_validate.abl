@@ -1,0 +1,21 @@
+from server.annotations import route, get
+from server.router import create_router
+
+@route("/api")
+class BadController():
+    @get("/items")
+    fun list(this, request):
+        return "ok"
+
+entry = BadController.__abl_server_meta__.routes.get(0)
+entry.verb = "FETCH"
+BadController.__abl_server_meta__.routes.set(0, entry)
+
+router = create_router([BadController])
+pr(len(router.routes))
+pr(len(router.errors))
+if len(router.errors) > 0:
+    err = router.errors.get(0)
+    pr(err.type)
+    pr(err.method)
+    pr(err.path)

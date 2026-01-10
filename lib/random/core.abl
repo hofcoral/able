@@ -19,15 +19,33 @@ class Random():
         return this.next_num() / RAND_MOD
 
     fun randint(this, lo, hi):
+        if not (type(lo) == "NUMBER") or not (type(hi) == "NUMBER"):
+            return null
+        if hi < lo:
+            return null
+        if hi == lo:
+            return lo
         return lo + this.next_num() % (hi - lo + 1)
 
     fun choice(this, seq):
+        if not (type(seq) == "LIST"):
+            return null
+        if len(seq) == 0:
+            return null
         return seq.get(this.randint(0, len(seq) - 1))
 
     fun sample(this, seq, k):
+        if not (type(seq) == "LIST"):
+            return null
+        if not (type(k) == "NUMBER"):
+            return null
+        if k < 0 or k > len(seq):
+            return null
         result = list()
+        pool = list(seq)
         for i of k:
-            result.append(this.choice(seq))
+            idx = this.randint(0, len(pool) - 1)
+            result.append(pool.remove(idx))
         return result
 
 default_seed = int(time())

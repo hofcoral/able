@@ -1,0 +1,6 @@
+from random import Random
+
+rng = Random(1)
+pr(type(rng.randint(5, 1)))
+pr(type(rng.choice([])))
+pr(type(rng.sample([1, 2], 3)))

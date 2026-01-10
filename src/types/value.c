@@ -230,6 +230,12 @@ void print_value(Value v, int indent)
         }
         break;
     }
+    case VAL_NULL:
+        printf("null");
+        break;
+    case VAL_UNDEFINED:
+        printf("undefined");
+        break;
     default:
         printf("undefined");
         break;

@@ -1,0 +1,26 @@
+fun trim(text):
+    return string_trim(text)
+
+fun split(text, separator):
+    return string_split(text, separator)
+
+fun join(parts, separator):
+    return string_join(parts, separator)
+
+fun replace(text, old_value, new_value):
+    return string_replace(text, old_value, new_value)
+
+fun contains(text, needle):
+    return string_contains(text, needle)
+
+fun starts_with(text, prefix):
+    return string_starts_with(text, prefix)
+
+fun ends_with(text, suffix):
+    return string_ends_with(text, suffix)
+
+fun lower(text):
+    return string_lower(text)
+
+fun upper(text):
+    return string_upper(text)

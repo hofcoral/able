@@ -1,0 +1,15 @@
+from string import trim, split, join, replace, contains, starts_with, ends_with, lower, upper
+
+text = "  Able Lang  "
+pr(trim(text))
+
+parts = split("a,b,c", ",")
+pr(len(parts))
+pr(join(parts, "-"))
+
+pr(replace("a-b-a", "a", "z"))
+pr(contains("able", "bl"))
+pr(starts_with("able", "a"))
+pr(ends_with("able", "le"))
+pr(lower("MiX"))
+pr(upper("MiX"))

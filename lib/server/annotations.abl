@@ -1,3 +1,5 @@
+from server.shared import normalize_path
+
 fun _is_decoratable(value):
     t = type(value)
     return t == "FUNCTION" or t == "TYPE"
@@ -17,17 +19,6 @@ fun _ensure_meta(target):
     meta.middleware = _clone_list(meta.middleware)
     target.__abl_server_meta__ = meta
     return meta
-
-fun _normalize_path(path):
-    if path == null:
-        return "/"
-    if type(path) == "STRING":
-        normalized = path
-    else:
-        normalized = str(path)
-    if normalized == "":
-        return "/"
-    return normalized
 
 fun _append_route(target, verb, path):
     meta = _ensure_meta(target)
@@ -101,7 +92,7 @@ fun route(arg):
         arg.__abl_server_meta__ = meta
         return arg
 
-    base_path = _normalize_path(arg)
+    base_path = normalize_path(arg)
 
     fun decorate(target):
         meta = _ensure_meta(target)
@@ -115,7 +106,7 @@ fun _http_route(arg, verb):
     if _is_decoratable(arg):
         return _append_route(arg, verb, "/")
 
-    path = _normalize_path(arg)
+    path = normalize_path(arg)
 
     fun decorate(target):
         return _append_route(target, verb, path)

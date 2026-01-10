@@ -36,6 +36,7 @@ Able is a single binary C interpreter built from modular subsystems located in
 
 Supporting assets include:
 
+- **`docs/`** – Documentation hub. See `docs/README.md` for the current index.
 - **`examples/`** – Canonical `.abl` scripts that double as fixtures for tests and
   documentation.
 - **`tests/`** – Python integration tests that compile the interpreter, execute
@@ -88,7 +89,11 @@ Automation expectations:
 ## Repository Layout at a Glance
 ```
 .
+├── docs/README.md           # Documentation index
 ├── docs/MAINTENANCE.md      # This guide
+├── docs/reference/          # Language reference topics
+│   └── annotations.md       # Annotation system reference
+├── docs/guides/             # End-user guides (planned)
 ├── examples/                # Reference Able programs
 ├── src/                     # Interpreter implementation
 │   ├── ast/                 # AST declarations and helpers

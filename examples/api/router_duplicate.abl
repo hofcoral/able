@@ -1,0 +1,24 @@
+from api import router, Route, Get
+
+ROUTER = router()
+
+@Route("/api")
+class FirstController():
+    @Get("/items")
+    fun list(this, request):
+        return "first"
+
+@Route("/api")
+class SecondController():
+    @Get("/items")
+    fun list(this, request):
+        return "second"
+
+routes = ROUTER.build()
+pr(len(routes))
+pr(len(ROUTER.errors))
+if len(ROUTER.errors) > 0:
+    err = ROUTER.errors[0]
+    pr(err.type)
+    pr(err.method)
+    pr(err.path)

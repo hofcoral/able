@@ -1,0 +1,7 @@
+from path import normalize, join
+
+pr(normalize(null))
+pr(normalize("/api"))
+pr(join("/api", "/users"))
+pr(join("/", "/"))
+pr(join("/api", "/"))
