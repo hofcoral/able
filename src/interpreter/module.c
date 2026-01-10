@@ -28,6 +28,47 @@ static ModuleEntry *modules = NULL;
 static Env *global_env_ref = NULL;
 static char exec_dir[PATH_MAX];
 
+static bool set_exec_dir_from_path(const char *path)
+{
+    char real[PATH_MAX];
+    if (!path || !realpath(path, real))
+        return false;
+    char *dir = dirname(real);
+    char *parent = dirname(dir);
+    strncpy(exec_dir, parent, sizeof(exec_dir));
+    exec_dir[sizeof(exec_dir) - 1] = '\0';
+    return true;
+}
+
+static bool resolve_exec_dir(const char *exec_path)
+{
+    if (set_exec_dir_from_path(exec_path))
+        return true;
+    if (!exec_path || strchr(exec_path, '/'))
+        return false;
+
+    const char *path_env = getenv("PATH");
+    if (!path_env)
+        return false;
+    char *dup = strdup(path_env);
+    if (!dup)
+        return false;
+    char *tok = strtok(dup, ":");
+    while (tok)
+    {
+        char candidate[PATH_MAX];
+        snprintf(candidate, sizeof(candidate), "%s/%s", tok, exec_path);
+        if (access(candidate, X_OK) == 0 && set_exec_dir_from_path(candidate))
+        {
+            free(dup);
+            return true;
+        }
+        tok = strtok(NULL, ":");
+    }
+    free(dup);
+    return false;
+}
+
 static char *find_module_file(const char *name)
 {
     const char *ablepath = getenv("ABLEPATH");
@@ -115,18 +156,8 @@ void module_system_init(Env *global_env, const char *exec_path)
 {
     global_env_ref = global_env;
     modules = NULL;
-    if (exec_path) {
-        char real[PATH_MAX];
-        if (realpath(exec_path, real)) {
-            char *dir = dirname(real);
-            char *parent = dirname(dir);
-            strncpy(exec_dir, parent, sizeof(exec_dir));
-        } else {
-            exec_dir[0] = '\0';
-        }
-    } else {
+    if (!resolve_exec_dir(exec_path))
         exec_dir[0] = '\0';
-    }
 }
 
 void module_system_cleanup()
