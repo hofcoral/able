@@ -1,0 +1,15 @@
+from api import router, Route, Get
+
+ROUTER = router()
+
+@Route("/")
+class HelloController():
+    @Get
+    fun index(this, request):
+        return "Hello, Able!"
+
+server_listen({
+    host: "127.0.0.1",
+    port: 8080,
+    routes: ROUTER.build()
+})

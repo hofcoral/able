@@ -1,0 +1,29 @@
+from api import router, Route, Get
+
+ROUTER = router()
+
+@Route("/api")
+class ApiController():
+    @Get
+    fun root(this, request):
+        return "api"
+
+@Route("/")
+class RootController():
+    @Get
+    fun root(this, request):
+        return "root"
+
+routes = ROUTER.build()
+
+fun find_route(entries, method, path):
+    for entry of entries:
+        if entry.method == method and entry.path == path:
+            return entry
+    return null
+
+api_route = find_route(routes, "GET", "/api")
+root_route = find_route(routes, "GET", "/")
+
+pr(api_route.path)
+pr(root_route.path)

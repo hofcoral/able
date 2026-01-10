@@ -1380,10 +1380,18 @@ Value run_ast(ASTNode **nodes, int count)
             }
             else
             {
+                Function *literal_fn = NULL;
+                if (n->children[0]->type == NODE_LITERAL &&
+                    n->children[0]->data.lit.literal_value.type == VAL_FUNCTION)
+                {
+                    literal_fn = n->children[0]->data.lit.literal_value.func;
+                }
                 AnnotationTargetType target_type = result.type == VAL_FUNCTION ? ANNOTATION_TARGET_FUNCTION : ANNOTATION_TARGET_ASSIGNMENT;
                 bool modifier_private = apply_annotations(n, &result, target_type, n->data.set.set_name);
-                if (result.type == VAL_FUNCTION && result.func->env == NULL)
+                if (result.type == VAL_FUNCTION && literal_fn && result.func == literal_fn)
                 {
+                    if (result.func->env)
+                        env_release(result.func->env);
                     result.func->env = interpreter_current_env();
                     env_retain(interpreter_current_env());
                 }

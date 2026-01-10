@@ -1,0 +1,27 @@
+import unittest
+
+from tests.integration.helpers import AbleTestCase
+
+
+class ApiRouterTests(AbleTestCase):
+    def test_build_routes(self):
+        output = self.run_script('examples/api/router_build.abl')
+        self.assertEqual(
+            output,
+            '2\nGET /api\nuser:GET\nPOST /api/users\nuser:POST\n',
+        )
+
+    def test_route_path_normalization(self):
+        output = self.run_script('examples/api/router_normalize.abl')
+        self.assertEqual(output, '/api\n/\n')
+
+    def test_route_method_validation(self):
+        output = self.run_script('examples/api/router_validate.abl')
+        self.assertEqual(
+            output,
+            '1\n1\ninvalid_method\nFETCH\n/bad\n',
+        )
+
+
+if __name__ == '__main__':
+    unittest.main()
