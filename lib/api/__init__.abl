@@ -1,16 +1,16 @@
 # Minimal annotation-driven router for server_listen.
 #
 # Example:
-# from api import router, Route, get
+# from api import router, Route, Get
 # ROUTER = router()
 #
 # @Route("/api")
 # class UserController():
-#     @get
+#     @Get
 #     fun index(this, request):
 #         return "ok"
 #
-# @get("/health")
+# @Get("/health")
 # fun health(request):
 #     return "ok"
 #
@@ -21,7 +21,7 @@ from server.annotations import route, get, post, put, patch, delete, options, he
 from server.shared import to_string, is_callable, normalize_path, join_path
 
 _ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
-_default_router = null
+_default_router_state = { "value": null }
 
 fun _is_allowed_method(method):
     for allowed of _ALLOWED_METHODS:
@@ -54,6 +54,12 @@ fun _build_error(kind, method, path, handler):
     entry.handler = handler
     return entry
 
+fun _has_route_key(key_list, route_key):
+    for current_key of key_list:
+        if current_key == route_key:
+            return true
+    return false
+
 fun _build_route_record(instance, base_path, route_entry):
     result = {}
     result.record = null
@@ -85,6 +91,7 @@ fun _build_route_record(instance, base_path, route_entry):
 fun _build_routes_from_registry(registry):
     routes = []
     errors = []
+    route_keys = []
     if type(registry) == "LIST":
         for entry of registry:
             if type(entry) == "TYPE":
@@ -95,7 +102,12 @@ fun _build_routes_from_registry(registry):
                     for route_def of definitions:
                         result = _build_route_record(instance, base_path, route_def)
                         if not (result.record == null):
-                            routes.append(result.record)
+                            key = result.record.method + " " + result.record.path
+                            if _has_route_key(route_keys, key):
+                                errors.append(_build_error("duplicate_route", result.record.method, result.record.path, result.record.handler))
+                            else:
+                                route_keys.append(key)
+                                routes.append(result.record)
                         if not (result.error == null):
                             errors.append(result.error)
             elif is_callable(entry):
@@ -105,7 +117,12 @@ fun _build_routes_from_registry(registry):
                     for route_def of definitions:
                         result = _build_route_record(null, base_path, route_def)
                         if not (result.record == null):
-                            routes.append(result.record)
+                            key = result.record.method + " " + result.record.path
+                            if _has_route_key(route_keys, key):
+                                errors.append(_build_error("duplicate_route", result.record.method, result.record.path, result.record.handler))
+                            else:
+                                route_keys.append(key)
+                                routes.append(result.record)
                         if not (result.error == null):
                             errors.append(result.error)
     result = {}
@@ -162,15 +179,18 @@ class Router():
     fun head(this, route_arg):
         return _register_route(this, head, route_arg)
 
+fun _get_default_router():
+    current = _default_router_state.value
+    if current == null:
+        current = Router()
+        _default_router_state.value = current
+    return current
+
 fun router():
-    if _default_router == null:
-        _default_router = Router()
-    return _default_router
+    return _get_default_router()
 
 fun _default():
-    if _default_router == null:
-        _default_router = Router()
-    return _default_router
+    return _get_default_router()
 
 fun Route(arg):
     target_router = _default()

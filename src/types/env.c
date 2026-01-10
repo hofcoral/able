@@ -51,16 +51,12 @@ static Variable *find_var(Env *env, const char *name)
 static void set_variable_internal(Env *env, const char *name, Value val,
                                   bool is_private)
 {
-    // Search existing variable in chain
-    for (Env *e = env; e != NULL; e = e->parent)
+    Variable *var = find_var(env, name);
+    if (var)
     {
-        Variable *var = find_var(e, name);
-        if (var)
-        {
-            free_value(var->value);
-            var->value = clone_value(&val);
-            return;
-        }
+        free_value(var->value);
+        var->value = clone_value(&val);
+        return;
     }
 
     // Add to current environment

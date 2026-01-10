@@ -53,6 +53,12 @@ fun _build_error(error_kind, error_method, error_path, error_handler):
     error_entry.handler = error_handler
     return error_entry
 
+fun _has_route_key(key_list, route_key):
+    for current_key of key_list:
+        if current_key == route_key:
+            return true
+    return false
+
 fun _build_route_record(controller_cls, instance, base_path, router_entry_item, controller_middleware):
     router_result = {}
     router_result.record = null
@@ -94,6 +100,7 @@ fun _build_route_record(controller_cls, instance, base_path, router_entry_item, 
 fun build_routes_with_errors(router_registry):
     router_routes = []
     router_errors = []
+    router_keys = []
     if type(router_registry) == "LIST":
         for controller_entry of router_registry:
             if type(controller_entry) == "TYPE":
@@ -105,7 +112,12 @@ fun build_routes_with_errors(router_registry):
                     for route_item of route_defs:
                         record_result = _build_route_record(controller_entry, controller_instance, base_path_value, route_item, controller_middleware)
                         if not (record_result.record == null):
-                            router_routes.append(record_result.record)
+                            route_key = record_result.record.key
+                            if _has_route_key(router_keys, route_key):
+                                router_errors.append(_build_error("duplicate_route", record_result.record.method, record_result.record.path, record_result.record.handler))
+                            else:
+                                router_keys.append(route_key)
+                                router_routes.append(record_result.record)
                         if not (record_result.error == null):
                             router_errors.append(record_result.error)
     router_result = {}

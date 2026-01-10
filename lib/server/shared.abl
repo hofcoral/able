@@ -1,28 +1,10 @@
-fun to_string(raw_value, raw_fallback):
-    if type(raw_value) == "UNDEFINED" or raw_value == null:
-        return raw_fallback
-    if type(raw_value) == "STRING":
-        if raw_value == "":
-            return raw_fallback
-        return raw_value
-    text_value = str(raw_value)
-    if text_value == "":
-        return raw_fallback
-    return text_value
+from path import to_string, normalize, join
 
 fun normalize_path(path_value):
-    return to_string(path_value, "/")
+    return normalize(path_value)
 
 fun join_path(base_value, segment_value):
-    normalized_base = normalize_path(base_value)
-    normalized_segment = normalize_path(segment_value)
-    if normalized_base == "/":
-        if normalized_segment == "/" or normalized_segment == "":
-            return "/"
-        return normalized_segment
-    if normalized_segment == "/" or normalized_segment == "":
-        return normalized_base
-    return normalized_base + normalized_segment
+    return join(base_value, segment_value)
 
 fun is_callable(call_value):
     t = type(call_value)

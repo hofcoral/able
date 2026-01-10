@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,6 +76,118 @@ static bool to_boolean(Value v)
     default:
         return true;
     }
+}
+
+static char *string_trim_copy(const char *text)
+{
+    const char *start = text;
+    while (*start && isspace((unsigned char)*start))
+        start++;
+    const char *end = text + strlen(text);
+    while (end > start && isspace((unsigned char)*(end - 1)))
+        end--;
+    size_t len = (size_t)(end - start);
+    char *out = malloc(len + 1);
+    if (!out)
+        return NULL;
+    memcpy(out, start, len);
+    out[len] = '\0';
+    return out;
+}
+
+static char *string_lower_copy(const char *text)
+{
+    size_t len = strlen(text);
+    char *out = malloc(len + 1);
+    if (!out)
+        return NULL;
+    for (size_t i = 0; i < len; ++i)
+        out[i] = (char)tolower((unsigned char)text[i]);
+    out[len] = '\0';
+    return out;
+}
+
+static char *string_upper_copy(const char *text)
+{
+    size_t len = strlen(text);
+    char *out = malloc(len + 1);
+    if (!out)
+        return NULL;
+    for (size_t i = 0; i < len; ++i)
+        out[i] = (char)toupper((unsigned char)text[i]);
+    out[len] = '\0';
+    return out;
+}
+
+static List *string_split_list(const char *text, const char *sep)
+{
+    List *list = malloc(sizeof(List));
+    if (!list)
+        return NULL;
+    list->count = 0;
+    list->capacity = 0;
+    list->items = NULL;
+    size_t sep_len = strlen(sep);
+    const char *cursor = text;
+    const char *match = NULL;
+    while ((match = strstr(cursor, sep)) != NULL)
+    {
+        size_t part_len = (size_t)(match - cursor);
+        char *part = malloc(part_len + 1);
+        if (!part)
+        {
+            free_list(list);
+            return NULL;
+        }
+        memcpy(part, cursor, part_len);
+        part[part_len] = '\0';
+        Value item = {.type = VAL_STRING, .str = part};
+        list_append(list, item);
+        free_value(item);
+        cursor = match + sep_len;
+    }
+    char *tail = strdup(cursor);
+    if (!tail)
+    {
+        free_list(list);
+        return NULL;
+    }
+    Value tail_val = {.type = VAL_STRING, .str = tail};
+    list_append(list, tail_val);
+    free_value(tail_val);
+    return list;
+}
+
+static char *string_replace_all(const char *text, const char *old_text, const char *new_text)
+{
+    size_t old_len = strlen(old_text);
+    size_t new_len = strlen(new_text);
+    const char *cursor = text;
+    const char *match = NULL;
+    int count = 0;
+    while ((match = strstr(cursor, old_text)) != NULL)
+    {
+        count++;
+        cursor = match + old_len;
+    }
+    size_t base_len = strlen(text);
+    size_t result_len = base_len + (size_t)count * (new_len - old_len);
+    char *out = malloc(result_len + 1);
+    if (!out)
+        return NULL;
+    char *out_cursor = out;
+    cursor = text;
+    while ((match = strstr(cursor, old_text)) != NULL)
+    {
+        size_t chunk_len = (size_t)(match - cursor);
+        memcpy(out_cursor, cursor, chunk_len);
+        out_cursor += chunk_len;
+        memcpy(out_cursor, new_text, new_len);
+        out_cursor += new_len;
+        cursor = match + old_len;
+    }
+    strcpy(out_cursor, cursor);
+    return out;
 }
 
 
@@ -721,6 +834,255 @@ static Value exec_func_call(ASTNode *n)
             log_script_error(n->line, n->column, "str() unsupported type");
             exit(1);
         }
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_trim") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "string_trim() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        if (arg.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_trim() expects a string");
+            exit(1);
+        }
+        char *trimmed = string_trim_copy(arg.str);
+        if (!trimmed)
+        {
+            log_script_error(n->line, n->column, "string_trim() allocation failed");
+            exit(1);
+        }
+        Value res = {.type = VAL_STRING, .str = trimmed};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_split") == 0)
+    {
+        if (n->child_count != 2)
+        {
+            log_script_error(n->line, n->column, "string_split() expects text and separator");
+            exit(1);
+        }
+        Value text = eval_node(n->children[0]);
+        Value sep = eval_node(n->children[1]);
+        if (text.type != VAL_STRING || sep.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_split() expects string arguments");
+            exit(1);
+        }
+        if (!sep.str || sep.str[0] == '\0')
+        {
+            log_script_error(n->line, n->column, "string_split() separator cannot be empty");
+            exit(1);
+        }
+        List *parts = string_split_list(text.str, sep.str);
+        if (!parts)
+        {
+            log_script_error(n->line, n->column, "string_split() allocation failed");
+            exit(1);
+        }
+        Value res = {.type = VAL_LIST, .list = parts};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_join") == 0)
+    {
+        if (n->child_count != 2)
+        {
+            log_script_error(n->line, n->column, "string_join() expects list and separator");
+            exit(1);
+        }
+        Value parts = eval_node(n->children[0]);
+        Value sep = eval_node(n->children[1]);
+        if (parts.type != VAL_LIST || sep.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_join() expects list and string separator");
+            exit(1);
+        }
+        size_t sep_len = sep.str ? strlen(sep.str) : 0;
+        size_t total_len = 0;
+        for (int i = 0; i < parts.list->count; ++i)
+        {
+            Value item = parts.list->items[i];
+            if (item.type != VAL_STRING)
+            {
+                log_script_error(n->line, n->column, "string_join() list items must be strings");
+                exit(1);
+            }
+            total_len += item.str ? strlen(item.str) : 0;
+            if (i + 1 < parts.list->count)
+                total_len += sep_len;
+        }
+        char *out = malloc(total_len + 1);
+        if (!out)
+        {
+            log_script_error(n->line, n->column, "string_join() allocation failed");
+            exit(1);
+        }
+        char *cursor = out;
+        for (int i = 0; i < parts.list->count; ++i)
+        {
+            Value item = parts.list->items[i];
+            size_t item_len = item.str ? strlen(item.str) : 0;
+            if (item_len > 0)
+            {
+                memcpy(cursor, item.str, item_len);
+                cursor += item_len;
+            }
+            if (i + 1 < parts.list->count && sep_len > 0)
+            {
+                memcpy(cursor, sep.str, sep_len);
+                cursor += sep_len;
+            }
+        }
+        out[total_len] = '\0';
+        Value res = {.type = VAL_STRING, .str = out};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_replace") == 0)
+    {
+        if (n->child_count != 3)
+        {
+            log_script_error(n->line, n->column, "string_replace() expects text, old, new");
+            exit(1);
+        }
+        Value text = eval_node(n->children[0]);
+        Value old_text = eval_node(n->children[1]);
+        Value new_text = eval_node(n->children[2]);
+        if (text.type != VAL_STRING || old_text.type != VAL_STRING || new_text.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_replace() expects string arguments");
+            exit(1);
+        }
+        if (!old_text.str || old_text.str[0] == '\0')
+        {
+            log_script_error(n->line, n->column, "string_replace() old value cannot be empty");
+            exit(1);
+        }
+        char *replaced = string_replace_all(text.str, old_text.str, new_text.str);
+        if (!replaced)
+        {
+            log_script_error(n->line, n->column, "string_replace() allocation failed");
+            exit(1);
+        }
+        Value res = {.type = VAL_STRING, .str = replaced};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_contains") == 0)
+    {
+        if (n->child_count != 2)
+        {
+            log_script_error(n->line, n->column, "string_contains() expects text and needle");
+            exit(1);
+        }
+        Value text = eval_node(n->children[0]);
+        Value needle = eval_node(n->children[1]);
+        if (text.type != VAL_STRING || needle.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_contains() expects string arguments");
+            exit(1);
+        }
+        bool result = true;
+        if (needle.str && needle.str[0] != '\0')
+            result = strstr(text.str, needle.str) != NULL;
+        Value res = {.type = VAL_BOOL, .boolean = result};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_starts_with") == 0)
+    {
+        if (n->child_count != 2)
+        {
+            log_script_error(n->line, n->column, "string_starts_with() expects text and prefix");
+            exit(1);
+        }
+        Value text = eval_node(n->children[0]);
+        Value prefix = eval_node(n->children[1]);
+        if (text.type != VAL_STRING || prefix.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_starts_with() expects string arguments");
+            exit(1);
+        }
+        size_t prefix_len = prefix.str ? strlen(prefix.str) : 0;
+        bool result = false;
+        if (prefix_len <= strlen(text.str))
+            result = strncmp(text.str, prefix.str, prefix_len) == 0;
+        Value res = {.type = VAL_BOOL, .boolean = result};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_ends_with") == 0)
+    {
+        if (n->child_count != 2)
+        {
+            log_script_error(n->line, n->column, "string_ends_with() expects text and suffix");
+            exit(1);
+        }
+        Value text = eval_node(n->children[0]);
+        Value suffix = eval_node(n->children[1]);
+        if (text.type != VAL_STRING || suffix.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_ends_with() expects string arguments");
+            exit(1);
+        }
+        size_t text_len = strlen(text.str);
+        size_t suffix_len = suffix.str ? strlen(suffix.str) : 0;
+        bool result = false;
+        if (suffix_len <= text_len)
+            result = strcmp(text.str + (text_len - suffix_len), suffix.str) == 0;
+        Value res = {.type = VAL_BOOL, .boolean = result};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_lower") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "string_lower() expects exactly one argument");
+            exit(1);
+        }
+        Value text = eval_node(n->children[0]);
+        if (text.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_lower() expects a string");
+            exit(1);
+        }
+        char *lowered = string_lower_copy(text.str);
+        if (!lowered)
+        {
+            log_script_error(n->line, n->column, "string_lower() allocation failed");
+            exit(1);
+        }
+        Value res = {.type = VAL_STRING, .str = lowered};
+        return res;
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "string_upper") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "string_upper() expects exactly one argument");
+            exit(1);
+        }
+        Value text = eval_node(n->children[0]);
+        if (text.type != VAL_STRING)
+        {
+            log_script_error(n->line, n->column, "string_upper() expects a string");
+            exit(1);
+        }
+        char *uppered = string_upper_copy(text.str);
+        if (!uppered)
+        {
+            log_script_error(n->line, n->column, "string_upper() allocation failed");
+            exit(1);
+        }
+        Value res = {.type = VAL_STRING, .str = uppered};
+        return res;
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "json_stringify") == 0)

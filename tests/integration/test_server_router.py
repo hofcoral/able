@@ -25,6 +25,13 @@ class ServerRouterTests(AbleTestCase):
             '0\n1\ninvalid_method\nFETCH\n/api/items\n',
         )
 
+    def test_duplicate_routes(self):
+        output = self.run_script('examples/server/router_duplicate.abl')
+        self.assertEqual(
+            output,
+            '1\n1\nduplicate_route\nGET\n/api/items\n',
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
