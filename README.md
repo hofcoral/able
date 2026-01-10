@@ -109,6 +109,8 @@ pr(normalize("/api"))
 
 - Assignments inside functions are local to that function and do not mutate outer scope variables.
 - `null` prints as `null`; `undefined` prints as `undefined`.
+- `type(value)` returns a type object (use `type_name(value)` for a string).
+- Numbers use decimal arithmetic with precision 20 and HALF_UP rounding.
 
 ```able
 x = 5
@@ -119,6 +121,12 @@ fun bump(x):
 
 pr(bump(1))
 pr(x)
+```
+
+```able
+amount = 0.1 + 0.2
+pr(amount.to_string())
+pr(amount is Number)
 ```
 
 ## Documentation

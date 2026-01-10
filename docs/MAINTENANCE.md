@@ -33,6 +33,8 @@ Able is a single binary C interpreter built from modular subsystems located in
 - **`src/utils/`** – Shared helpers: file I/O, diagnostics, memory utilities, and
   convenience wrappers used throughout the interpreter.
 - **`vendor/`** – Third-party headers. Treat as read-only.
+- **`vendor/mpdecimal/`** – Embedded mpdecimal sources used for decimal `Number`
+  arithmetic. Treat as read-only.
 
 Supporting assets include:
 
