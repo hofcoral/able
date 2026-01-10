@@ -29,6 +29,10 @@ class ApiRouterTests(AbleTestCase):
             '1\n1\nduplicate_route\nGET\n/api/items\n',
         )
 
+    def test_logger_middleware(self):
+        output = self.run_script('tests/fixtures/api_logger.abl')
+        self.assertEqual(output, 'GET / 200\nok\n')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -180,6 +180,17 @@ server_listen({
 
 `ROUTER.build()` also populates `ROUTER.errors` with any invalid route metadata.
 
+Handlers can return plain values (string/number/bool) for text responses, or
+objects/lists to send JSON. When returning a response object, `body` may also be
+an object/list and will be JSON serialized automatically.
+
+To enable request logging, use the built-in middleware:
+
+```able
+from api import logger
+ROUTER.use(logger)
+```
+
 ## Development
 
 - Source code lives in `src/`.

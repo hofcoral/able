@@ -1,0 +1,18 @@
+from api import router, Route, Get, logger
+
+ROUTER = router()
+ROUTER.use(logger)
+
+@Route("/")
+class EntryController():
+    @Get
+    fun index(this, request):
+        return { body: { "ok": true } }
+
+port = read_text_file("build/server_port.txt")
+
+server_listen({
+    host: "127.0.0.1",
+    port: port,
+    routes: ROUTER.build()
+})

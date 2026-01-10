@@ -1,0 +1,16 @@
+from api import router, Route, Get, logger
+
+ROUTER = router()
+ROUTER.use(logger)
+
+@Route("/")
+class EntryController():
+    @Get
+    fun index(this, request):
+        return "ok"
+
+routes = ROUTER.build()
+first = routes.get(0)
+handler = first.handler
+result = await handler({ method: "GET", path: "/" })
+pr(result)
