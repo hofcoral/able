@@ -37,7 +37,7 @@ fun _bind_handler(instance, handler):
 fun _resolve_handler(instance, handler):
     if not is_callable(handler):
         return null
-    if type(handler) == "FUNCTION":
+    if handler is Function:
         if instance == null:
             return handler
         return _bind_handler(instance, handler)
@@ -64,10 +64,10 @@ fun _build_route_record(instance, base_path, route_entry):
     result = {}
     result.record = null
     result.error = null
-    if not (type(route_entry) == "OBJECT"):
+    if not (route_entry is Object):
         return result
     method = route_entry.verb
-    if type(method) == "UNDEFINED" or method == null:
+    if method is Undefined or method == null:
         method = route_entry.method
     method_text = _normalize_method(method)
     path = join_path(base_path, route_entry.path)
@@ -92,13 +92,13 @@ fun _build_routes_from_registry(registry):
     routes = []
     errors = []
     route_keys = []
-    if type(registry) == "LIST":
+    if registry is List:
         for entry of registry:
-            if type(entry) == "TYPE":
+            if entry is Type:
                 instance = entry()
                 base_path = get_base_path(entry)
                 definitions = get_routes(entry)
-                if type(definitions) == "LIST":
+                if definitions is List:
                     for route_def of definitions:
                         result = _build_route_record(instance, base_path, route_def)
                         if not (result.record == null):
@@ -113,7 +113,7 @@ fun _build_routes_from_registry(registry):
             elif is_callable(entry):
                 base_path = get_base_path(entry)
                 definitions = get_routes(entry)
-                if type(definitions) == "LIST":
+                if definitions is List:
                     for route_def of definitions:
                         result = _build_route_record(null, base_path, route_def)
                         if not (result.record == null):
@@ -131,7 +131,7 @@ fun _build_routes_from_registry(registry):
     return result
 
 fun _register_route(router_ctx, decorator, route_arg):
-    if type(route_arg) == "FUNCTION":
+    if route_arg is Function:
         decorated = decorator(route_arg)
         router_ctx.register(decorated)
         return decorated
@@ -194,7 +194,7 @@ fun _default():
 
 fun Route(arg):
     target_router = _default()
-    if type(arg) == "TYPE":
+    if arg is Type:
         decorated = route(arg)
         target_router.register(decorated)
         return decorated
@@ -237,7 +237,7 @@ register_decorator("Options", Options)
 register_decorator("Head", Head)
 
 fun build_routes(registry):
-    if type(registry) == "INSTANCE":
+    if registry is Instance:
         result = _build_routes_from_registry(registry.registry)
         return result.routes
     result = _build_routes_from_registry(registry)

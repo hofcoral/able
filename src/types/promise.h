@@ -39,8 +39,11 @@ Promise *promise_create_with_task(AsyncTask *task);
 void promise_attach_task(Promise *promise, AsyncTask *task);
 AsyncTask *promise_take_task(Promise *promise);
 PromiseState promise_state(const Promise *promise);
+// promise_resolve/reject clone the input (borrowed); *_owned takes ownership.
 void promise_resolve(Promise *promise, Value value);
 void promise_reject(Promise *promise, Value reason);
+void promise_resolve_owned(Promise *promise, Value value);
+void promise_reject_owned(Promise *promise, Value reason);
 Value promise_clone_result(const Promise *promise);
 Value promise_clone_reason(const Promise *promise);
 void promise_retain(Promise *promise);

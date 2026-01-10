@@ -1,2 +1,2 @@
 x = "foo"
-pr(type(x))
+pr(x is String)

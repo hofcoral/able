@@ -1,7 +1,7 @@
 fun to_string(raw_value, raw_fallback):
-    if type(raw_value) == "UNDEFINED" or raw_value == null:
+    if raw_value is Undefined or raw_value == null:
         return raw_fallback
-    if type(raw_value) == "STRING":
+    if raw_value is String:
         if raw_value == "":
             return raw_fallback
         return raw_value

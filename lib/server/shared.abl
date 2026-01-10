@@ -7,19 +7,18 @@ fun join_path(base_value, segment_value):
     return join(base_value, segment_value)
 
 fun is_callable(call_value):
-    t = type(call_value)
-    return t == "FUNCTION" or t == "BOUND_METHOD"
+    return (call_value is Function) or (call_value is BoundMethod)
 
 fun to_list(list_value):
-    if type(list_value) == "LIST":
+    if list_value is List:
         return list_value
     items = []
-    if type(list_value) == "UNDEFINED" or list_value == null:
+    if list_value is Undefined or list_value == null:
         return items
     items.append(list_value)
     return items
 
 fun clone_object(obj_value):
-    if type(obj_value) == "OBJECT":
+    if obj_value is Object:
         return dict(obj_value)
     return {}

@@ -11,9 +11,11 @@
 #include "types/env.h"
 #include "types/function.h"
 #include "types/list.h"
+#include "types/number.h"
 #include "types/promise.h"
 #include "types/type.h"
 #include "types/instance.h"
+#include "types/builtin_types.h"
 #include "interpreter/attr.h"
 #include "interpreter/resolve.h"
 #include "interpreter/interpreter.h"
@@ -45,19 +47,9 @@ static bool value_is_container(Value v)
     return v.type == VAL_OBJECT || v.type == VAL_INSTANCE || v.type == VAL_TYPE || v.type == VAL_FUNCTION;
 }
 
-static double to_number(Value v)
+static Number *to_number(Value v, int line, int column)
 {
-    switch (v.type)
-    {
-    case VAL_NUMBER:
-        return v.num;
-    case VAL_BOOL:
-        return v.boolean ? 1 : 0;
-    case VAL_STRING:
-        return atof(v.str);
-    default:
-        return NAN;
-    }
+    return number_from_value(v, line, column);
 }
 
 static bool to_boolean(Value v)
@@ -67,7 +59,7 @@ static bool to_boolean(Value v)
     case VAL_BOOL:
         return v.boolean;
     case VAL_NUMBER:
-        return v.num != 0;
+        return !number_is_zero(v.number);
     case VAL_STRING:
         return v.str && v.str[0] != '\0';
     case VAL_NULL:
@@ -200,7 +192,7 @@ static bool strict_equal(Value a, Value b)
     switch (a.type)
     {
     case VAL_NUMBER:
-        return a.num == b.num;
+        return number_compare(a.number, b.number, 0, 0) == 0;
     case VAL_STRING:
         return strcmp(a.str, b.str) == 0;
     case VAL_BOOL:
@@ -219,7 +211,7 @@ static bool strict_equal(Value a, Value b)
     }
 }
 
-static bool loose_equal(Value a, Value b)
+static bool loose_equal(Value a, Value b, int line, int column)
 {
     if (a.type == b.type)
         return strict_equal(a, b);
@@ -227,9 +219,12 @@ static bool loose_equal(Value a, Value b)
     if ((a.type == VAL_NUMBER || a.type == VAL_STRING || a.type == VAL_BOOL) &&
         (b.type == VAL_NUMBER || b.type == VAL_STRING || b.type == VAL_BOOL))
     {
-        double na = to_number(a);
-        double nb = to_number(b);
-        return na == nb;
+        Number *left = to_number(a, line, column);
+        Number *right = to_number(b, line, column);
+        int cmp = number_compare(left, right, line, column);
+        number_free(left);
+        number_free(right);
+        return cmp == 0;
     }
 
     return false;
@@ -335,28 +330,36 @@ static Value eval_node(ASTNode *n)
         Value old;
         if (target->type == NODE_VAR)
         {
-            old = get_variable(interpreter_current_env(), target->data.set.set_name,
+            Value current = get_variable(interpreter_current_env(), target->data.set.set_name,
                                target->line, target->column);
-            if (old.type != VAL_NUMBER)
+            if (current.type != VAL_NUMBER)
             {
                 log_script_error(target->line, target->column,
                                   "Increment target must be a number");
                 exit(1);
             }
-            Value new_val = {.type = VAL_NUMBER, .num = old.num + 1};
+            old = clone_value(&current);
+            Number *one = number_from_int(1);
+            Number *sum = number_add(current.number, one, target->line, target->column);
+            number_free(one);
+            Value new_val = {.type = VAL_NUMBER, .number = sum};
             set_variable(interpreter_current_env(), target->data.set.set_name,
                          new_val);
         }
         else if (target->type == NODE_ATTR_ACCESS)
         {
-            old = resolve_attribute_chain(target);
-            if (old.type != VAL_NUMBER)
+            Value current = resolve_attribute_chain(target);
+            if (current.type != VAL_NUMBER)
             {
                 log_script_error(target->line, target->column,
                                   "Increment target must be a number");
                 exit(1);
             }
-            Value new_val = {.type = VAL_NUMBER, .num = old.num + 1};
+            old = clone_value(&current);
+            Number *one = number_from_int(1);
+            Number *sum = number_add(current.number, one, target->line, target->column);
+            number_free(one);
+            Value new_val = {.type = VAL_NUMBER, .number = sum};
             assign_attribute_chain(target, new_val);
         }
         else
@@ -389,7 +392,9 @@ static Value eval_node(ASTNode *n)
                                       "Slice start must be a number");
                     exit(1);
                 }
-                start = (int)sv.num;
+                long long start_val = 0;
+                number_to_long(sv.number, &start_val, n->line, n->column);
+                start = (int)start_val;
             }
             if (n->data.index.has_end)
             {
@@ -400,7 +405,9 @@ static Value eval_node(ASTNode *n)
                                       "Slice end must be a number");
                     exit(1);
                 }
-                end = (int)ev.num;
+                long long end_val = 0;
+                number_to_long(ev.number, &end_val, n->line, n->column);
+                end = (int)end_val;
             }
             List *slice = list_slice(collection.list, start, end);
             Value res = {.type = VAL_LIST, .list = slice};
@@ -412,7 +419,9 @@ static Value eval_node(ASTNode *n)
             log_script_error(n->line, n->column, "List index must be a number");
             exit(1);
         }
-        int idx = (int)idxv.num;
+        long long idx_val = 0;
+        number_to_long(idxv.number, &idx_val, n->line, n->column);
+        int idx = (int)idx_val;
         Value item = list_get(collection.list, idx);
         return clone_value(&item);
     }
@@ -459,9 +468,19 @@ static Value eval_node(ASTNode *n)
         Value right = eval_node(n->children[1]);
         if (n->data.binary.op == OP_EQ || n->data.binary.op == OP_STRICT_EQ)
         {
-            bool eq = n->data.binary.op == OP_EQ ? loose_equal(left, right)
+            bool eq = n->data.binary.op == OP_EQ ? loose_equal(left, right, n->line, n->column)
                                             : strict_equal(left, right);
             Value res = {.type = VAL_BOOL, .boolean = eq};
+            return res;
+        }
+        if (n->data.binary.op == OP_IS)
+        {
+            if (right.type != VAL_TYPE)
+            {
+                log_script_error(n->line, n->column, "'is' expects a type on the right-hand side");
+                exit(1);
+            }
+            Value res = {.type = VAL_BOOL, .boolean = value_is_type(left, right.cls)};
             return res;
         }
 
@@ -472,21 +491,24 @@ static Value eval_node(ASTNode *n)
             if ((left.type == VAL_NUMBER || left.type == VAL_BOOL) &&
                 (right.type == VAL_NUMBER || right.type == VAL_BOOL))
             {
-                double ln = to_number(left);
-                double rn = to_number(right);
+                Number *ln = to_number(left, n->line, n->column);
+                Number *rn = to_number(right, n->line, n->column);
+                int cmp_val = number_compare(ln, rn, n->line, n->column);
+                number_free(ln);
+                number_free(rn);
                 switch (n->data.binary.op)
                 {
                 case OP_LT:
-                    cmp = ln < rn;
+                    cmp = cmp_val < 0;
                     break;
                 case OP_GT:
-                    cmp = ln > rn;
+                    cmp = cmp_val > 0;
                     break;
                 case OP_LTE:
-                    cmp = ln <= rn;
+                    cmp = cmp_val <= 0;
                     break;
                 default:
-                    cmp = ln >= rn;
+                    cmp = cmp_val >= 0;
                 }
             }
             else if (left.type == VAL_STRING && right.type == VAL_STRING)
@@ -522,29 +544,19 @@ static Value eval_node(ASTNode *n)
             switch (n->data.binary.op)
             {
             case OP_ADD:
-                res.num = left.num + right.num;
+                res.number = number_add(left.number, right.number, n->line, n->column);
                 break;
             case OP_SUB:
-                res.num = left.num - right.num;
+                res.number = number_sub(left.number, right.number, n->line, n->column);
                 break;
             case OP_MUL:
-                res.num = left.num * right.num;
+                res.number = number_mul(left.number, right.number, n->line, n->column);
                 break;
             case OP_DIV:
-                if (right.num == 0)
-                {
-                    log_script_error(n->line, n->column, "Division by zero");
-                    exit(1);
-                }
-                res.num = left.num / right.num;
+                res.number = number_div(left.number, right.number, n->line, n->column);
                 break;
             case OP_MOD:
-                if (right.num == 0)
-                {
-                    log_script_error(n->line, n->column, "Modulo by zero");
-                    exit(1);
-                }
-                res.num = fmod(left.num, right.num);
+                res.number = number_mod(left.number, right.number, n->line, n->column);
                 break;
             default:
                 log_script_error(n->line, n->column, "Unknown operator");
@@ -744,9 +756,29 @@ static Value exec_func_call(ASTNode *n)
             exit(1);
         }
         Value arg = eval_node(n->children[0]);
-        const char *name = value_type_name(arg.type);
-        Value res = {.type = VAL_STRING, .str = strdup(name)};
-        return res;
+        return builtin_type_value_for(arg);
+    }
+
+    if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "type_name") == 0)
+    {
+        if (n->child_count != 1)
+        {
+            log_script_error(n->line, n->column, "type_name() expects exactly one argument");
+            exit(1);
+        }
+        Value arg = eval_node(n->children[0]);
+        const char *name = NULL;
+        if (arg.type == VAL_TYPE && arg.cls && arg.cls->name)
+            name = arg.cls->name;
+        else
+        {
+            Value type_val = builtin_type_value_for(arg);
+            if (type_val.type == VAL_TYPE && type_val.cls && type_val.cls->name)
+                name = type_val.cls->name;
+        }
+        if (!name)
+            name = "Unknown";
+        return (Value){.type = VAL_STRING, .str = strdup(name)};
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "bool") == 0)
@@ -771,17 +803,17 @@ static Value exec_func_call(ASTNode *n)
         Value arg = eval_node(n->children[0]);
         if (arg.type == VAL_STRING)
         {
-            Value res = {.type = VAL_NUMBER, .num = (double)strlen(arg.str)};
+            Value res = {.type = VAL_NUMBER, .number = number_from_int((long long)strlen(arg.str))};
             return res;
         }
         if (arg.type == VAL_LIST)
         {
-            Value res = {.type = VAL_NUMBER, .num = (double)arg.list->count};
+            Value res = {.type = VAL_NUMBER, .number = number_from_int((long long)arg.list->count)};
             return res;
         }
         if (arg.type == VAL_OBJECT)
         {
-            Value res = {.type = VAL_NUMBER, .num = (double)arg.obj->count};
+            Value res = {.type = VAL_NUMBER, .number = number_from_int((long long)arg.obj->count)};
             return res;
         }
         log_script_error(n->line, n->column, "len() unsupported type");
@@ -796,8 +828,10 @@ static Value exec_func_call(ASTNode *n)
             exit(1);
         }
         Value arg = eval_node(n->children[0]);
-        Value res = {.type = VAL_NUMBER, .num = (double)(long long)to_number(arg)};
-        return res;
+        Number *num = to_number(arg, n->line, n->column);
+        Number *trunc = number_trunc(num, n->line, n->column);
+        number_free(num);
+        return (Value){.type = VAL_NUMBER, .number = trunc};
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "float") == 0)
@@ -808,8 +842,8 @@ static Value exec_func_call(ASTNode *n)
             exit(1);
         }
         Value arg = eval_node(n->children[0]);
-        Value res = {.type = VAL_NUMBER, .num = to_number(arg)};
-        return res;
+        Number *num = to_number(arg, n->line, n->column);
+        return (Value){.type = VAL_NUMBER, .number = num};
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "str") == 0)
@@ -820,12 +854,19 @@ static Value exec_func_call(ASTNode *n)
             exit(1);
         }
         Value arg = eval_node(n->children[0]);
-        char buf[64];
         switch (arg.type)
         {
         case VAL_NUMBER:
-            snprintf(buf, sizeof(buf), "%g", arg.num);
-            return (Value){.type = VAL_STRING, .str = strdup(buf)};
+        {
+            char *text = number_to_string(arg.number);
+            if (!text)
+            {
+                log_script_error(n->line, n->column, "str() failed for number");
+                exit(1);
+            }
+            Value res = {.type = VAL_STRING, .str = text};
+            return res;
+        }
         case VAL_BOOL:
             return (Value){.type = VAL_STRING, .str = strdup(arg.boolean ? "true" : "false")};
         case VAL_STRING:
@@ -1206,15 +1247,17 @@ static Value exec_func_call(ASTNode *n)
             log_script_error(n->line, n->column, "range() expects a number");
             exit(1);
         }
-        int limit = (int)arg.num;
+        long long limit = 0;
+        number_to_long(arg.number, &limit, n->line, n->column);
         List *list = malloc(sizeof(List));
         list->count = 0;
         list->capacity = 0;
         list->items = NULL;
-        for (int i = 0; i < limit; ++i)
+        for (long long i = 0; i < limit; ++i)
         {
-            Value numv = {.type = VAL_NUMBER, .num = i};
+            Value numv = {.type = VAL_NUMBER, .number = number_from_int(i)};
             list_append(list, numv);
+            free_value(numv);
         }
         return (Value){.type = VAL_LIST, .list = list};
     }
@@ -1250,8 +1293,9 @@ static Value exec_func_call(ASTNode *n)
             log_script_error(n->line, n->column, "time() expects no arguments");
             exit(1);
         }
-        double t = (double)time(NULL);
-        return (Value){.type = VAL_NUMBER, .num = t};
+        long long t = (long long)time(NULL);
+        Number *num = number_from_int(t);
+        return (Value){.type = VAL_NUMBER, .number = num};
     }
 
     if (n->data.call.func_callee->type == NODE_VAR && strcmp(n->data.call.func_callee->data.set.set_name, "sleep") == 0)
@@ -1267,7 +1311,7 @@ static Value exec_func_call(ASTNode *n)
             log_script_error(n->line, n->column, "sleep() expects a number");
             exit(1);
         }
-        double sec = to_number(arg);
+        double sec = number_to_double(arg.number, n->line, n->column);
         if (sec > 0)
             usleep((useconds_t)(sec * 1000000));
         Value undef = {.type = VAL_UNDEFINED};
@@ -1324,7 +1368,6 @@ static Value exec_func_call(ASTNode *n)
                         return value;
                     Promise *promise = promise_create();
                     promise_resolve(promise, value);
-                    free_value(value);
                     Value promise_val = {.type = VAL_PROMISE, .promise = promise};
                     return promise_val;
                 }
@@ -1338,7 +1381,6 @@ static Value exec_func_call(ASTNode *n)
                     Value reason = eval_node(n->children[0]);
                     Promise *promise = promise_create();
                     promise_reject(promise, reason);
-                    free_value(reason);
                     Value promise_val = {.type = VAL_PROMISE, .promise = promise};
                     return promise_val;
                 }
@@ -1373,7 +1415,9 @@ static Value exec_func_call(ASTNode *n)
                         exit(1);
                     }
                     Value value = eval_node(n->children[1]);
-                    if (!list_set(target.list, (int)idxv.num, value))
+                    long long idx = 0;
+                    number_to_long(idxv.number, &idx, n->line, n->column);
+                    if (!list_set(target.list, (int)idx, value))
                     {
                         log_script_error(n->line, n->column, "set() index out of range");
                         exit(1);
@@ -1394,7 +1438,9 @@ static Value exec_func_call(ASTNode *n)
                         log_script_error(n->line, n->column, "remove() index must be number");
                         exit(1);
                     }
-                    return list_remove(target.list, (int)idxv.num);
+                    long long idx = 0;
+                    number_to_long(idxv.number, &idx, n->line, n->column);
+                    return list_remove(target.list, (int)idx);
                 }
                 if (strcmp(name, "get") == 0)
                 {
@@ -1409,7 +1455,9 @@ static Value exec_func_call(ASTNode *n)
                         log_script_error(n->line, n->column, "get() index must be number");
                         exit(1);
                     }
-                    Value item = list_get(target.list, (int)idxv.num);
+                    long long idx = 0;
+                    number_to_long(idxv.number, &idx, n->line, n->column);
+                    Value item = list_get(target.list, (int)idx);
                     return clone_value(&item);
                 }
                 if (strcmp(name, "extend") == 0)
@@ -1428,6 +1476,195 @@ static Value exec_func_call(ASTNode *n)
                     list_extend(target.list, lst.list);
                     Value undef = {.type = VAL_UNDEFINED};
                     return undef;
+                }
+            }
+            if (target.type == VAL_NUMBER)
+            {
+                if (strcmp(name, "eq") == 0 || strcmp(name, "lt") == 0 ||
+                    strcmp(name, "lte") == 0 || strcmp(name, "gt") == 0 ||
+                    strcmp(name, "gte") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "%s() expects one argument", name);
+                        exit(1);
+                    }
+                    Value arg = eval_node(n->children[0]);
+                    Number *other = number_from_value(arg, n->line, n->column);
+                    int cmp = number_compare(target.number, other, n->line, n->column);
+                    number_free(other);
+                    bool result = false;
+                    if (strcmp(name, "eq") == 0)
+                        result = cmp == 0;
+                    else if (strcmp(name, "lt") == 0)
+                        result = cmp < 0;
+                    else if (strcmp(name, "lte") == 0)
+                        result = cmp <= 0;
+                    else if (strcmp(name, "gt") == 0)
+                        result = cmp > 0;
+                    else
+                        result = cmp >= 0;
+                    return (Value){.type = VAL_BOOL, .boolean = result};
+                }
+                if (strcmp(name, "cmp") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "cmp() expects one argument");
+                        exit(1);
+                    }
+                    Value arg = eval_node(n->children[0]);
+                    Number *other = number_from_value(arg, n->line, n->column);
+                    int cmp = number_compare(target.number, other, n->line, n->column);
+                    number_free(other);
+                    return (Value){.type = VAL_NUMBER, .number = number_from_int(cmp)};
+                }
+                if (strcmp(name, "plus") == 0 || strcmp(name, "minus") == 0 ||
+                    strcmp(name, "times") == 0 || strcmp(name, "div") == 0 ||
+                    strcmp(name, "mod") == 0 || strcmp(name, "pow") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "%s() expects one argument", name);
+                        exit(1);
+                    }
+                    Value arg = eval_node(n->children[0]);
+                    Number *other = number_from_value(arg, n->line, n->column);
+                    Number *result = NULL;
+                    if (strcmp(name, "plus") == 0)
+                        result = number_add(target.number, other, n->line, n->column);
+                    else if (strcmp(name, "minus") == 0)
+                        result = number_sub(target.number, other, n->line, n->column);
+                    else if (strcmp(name, "times") == 0)
+                        result = number_mul(target.number, other, n->line, n->column);
+                    else if (strcmp(name, "div") == 0)
+                        result = number_div(target.number, other, n->line, n->column);
+                    else if (strcmp(name, "mod") == 0)
+                        result = number_mod(target.number, other, n->line, n->column);
+                    else
+                        result = number_pow(target.number, other, n->line, n->column);
+                    number_free(other);
+                    return (Value){.type = VAL_NUMBER, .number = result};
+                }
+                if (strcmp(name, "abs") == 0)
+                {
+                    if (n->child_count != 0)
+                    {
+                        log_script_error(n->line, n->column, "abs() expects no arguments");
+                        exit(1);
+                    }
+                    Number *result = number_abs(target.number, n->line, n->column);
+                    return (Value){.type = VAL_NUMBER, .number = result};
+                }
+                if (strcmp(name, "neg") == 0)
+                {
+                    if (n->child_count != 0)
+                    {
+                        log_script_error(n->line, n->column, "neg() expects no arguments");
+                        exit(1);
+                    }
+                    Number *result = number_neg(target.number, n->line, n->column);
+                    return (Value){.type = VAL_NUMBER, .number = result};
+                }
+                if (strcmp(name, "floor") == 0)
+                {
+                    if (n->child_count != 0)
+                    {
+                        log_script_error(n->line, n->column, "floor() expects no arguments");
+                        exit(1);
+                    }
+                    Number *result = number_floor(target.number, n->line, n->column);
+                    return (Value){.type = VAL_NUMBER, .number = result};
+                }
+                if (strcmp(name, "ceil") == 0)
+                {
+                    if (n->child_count != 0)
+                    {
+                        log_script_error(n->line, n->column, "ceil() expects no arguments");
+                        exit(1);
+                    }
+                    Number *result = number_ceil(target.number, n->line, n->column);
+                    return (Value){.type = VAL_NUMBER, .number = result};
+                }
+                if (strcmp(name, "round") == 0)
+                {
+                    int scale = 0;
+                    if (n->child_count > 1)
+                    {
+                        log_script_error(n->line, n->column, "round() expects zero or one argument");
+                        exit(1);
+                    }
+                    if (n->child_count == 1)
+                    {
+                        Value arg = eval_node(n->children[0]);
+                        if (arg.type != VAL_NUMBER)
+                        {
+                            log_script_error(n->line, n->column, "round() expects a number argument");
+                            exit(1);
+                        }
+                        long long scale_val = 0;
+                        number_to_long(arg.number, &scale_val, n->line, n->column);
+                        scale = (int)scale_val;
+                    }
+                    Number *result = number_round(target.number, scale, n->line, n->column);
+                    return (Value){.type = VAL_NUMBER, .number = result};
+                }
+                if (strcmp(name, "sqrt") == 0)
+                {
+                    if (n->child_count != 0)
+                    {
+                        log_script_error(n->line, n->column, "sqrt() expects no arguments");
+                        exit(1);
+                    }
+                    Number *result = number_sqrt(target.number, n->line, n->column);
+                    return (Value){.type = VAL_NUMBER, .number = result};
+                }
+                if (strcmp(name, "to_string") == 0)
+                {
+                    if (n->child_count != 0)
+                    {
+                        log_script_error(n->line, n->column, "to_string() expects no arguments");
+                        exit(1);
+                    }
+                    char *text = number_to_string(target.number);
+                    if (!text)
+                    {
+                        log_script_error(n->line, n->column, "to_string() failed");
+                        exit(1);
+                    }
+                    return (Value){.type = VAL_STRING, .str = text};
+                }
+                if (strcmp(name, "to_fixed") == 0)
+                {
+                    if (n->child_count != 1)
+                    {
+                        log_script_error(n->line, n->column, "to_fixed() expects one argument");
+                        exit(1);
+                    }
+                    Value arg = eval_node(n->children[0]);
+                    if (arg.type != VAL_NUMBER)
+                    {
+                        log_script_error(n->line, n->column, "to_fixed() expects a number argument");
+                        exit(1);
+                    }
+                    long long scale_val = 0;
+                    number_to_long(arg.number, &scale_val, n->line, n->column);
+                    char *text = number_to_fixed(target.number, (int)scale_val, n->line, n->column);
+                    if (!text)
+                    {
+                        log_script_error(n->line, n->column, "to_fixed() failed");
+                        exit(1);
+                    }
+                    return (Value){.type = VAL_STRING, .str = text};
+                }
+                if (strcmp(name, "is_int") == 0)
+                {
+                    if (n->child_count != 0)
+                    {
+                        log_script_error(n->line, n->column, "is_int() expects no arguments");
+                        exit(1);
+                    }
+                    return (Value){.type = VAL_BOOL, .boolean = number_is_int(target.number)};
                 }
             }
         }
@@ -1913,12 +2150,14 @@ Value run_ast(ASTNode **nodes, int count)
             ASTNode *body = n->children[1];
             if (iterable.type == VAL_NUMBER)
             {
-                int limit = (int)iterable.num;
-                for (int i = 0; i < limit; ++i)
+                long long limit = 0;
+                number_to_long(iterable.number, &limit, n->line, n->column);
+                for (long long i = 0; i < limit; ++i)
                 {
-                    Value idx = {.type = VAL_NUMBER, .num = i};
+                    Value idx = {.type = VAL_NUMBER, .number = number_from_int(i)};
                     set_variable(interpreter_current_env(), n->data.loop.loop_var,
                                  idx);
+                    free_value(idx);
                     last = run_ast(body->children, body->child_count);
                     CallFrame *cf = current_frame(&call_stack);
                     if (cf && cf->returning)

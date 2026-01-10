@@ -1,7 +1,7 @@
 from math import sqrt, floor, ceil, round, add
 
-pr(type(sqrt(-1)))
-pr(type(floor("nope")))
-pr(type(ceil("nope")))
-pr(type(round("nope")))
-pr(type(add("nope", 1)))
+pr(sqrt(-1) is Null)
+pr(floor("nope") is Null)
+pr(ceil("nope") is Null)
+pr(round("nope") is Null)
+pr(add("nope", 1) is Null)

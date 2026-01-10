@@ -43,6 +43,7 @@ typedef enum
     OP_MOD,
     OP_EQ,
     OP_STRICT_EQ,
+    OP_IS,
     OP_LT,
     OP_GT,
     OP_LTE,

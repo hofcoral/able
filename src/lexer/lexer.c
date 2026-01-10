@@ -207,6 +207,8 @@ Token next_token(Lexer *lexer)
             return make_token(TOKEN_FUN, start, len, lexer->line, column);
         if (len == 2 && strncmp(start, "if", len) == 0)
             return make_token(TOKEN_IF, start, len, lexer->line, column);
+        if (len == 2 && strncmp(start, "is", len) == 0)
+            return make_token(TOKEN_IS, start, len, lexer->line, column);
         if (len == 4 && strncmp(start, "elif", len) == 0)
             return make_token(TOKEN_ELIF, start, len, lexer->line, column);
         if (len == 4 && strncmp(start, "else", len) == 0)

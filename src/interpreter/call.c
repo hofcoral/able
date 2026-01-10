@@ -3,8 +3,10 @@
 #include "types/env.h"
 #include "types/function.h"
 #include "types/instance.h"
+#include "types/number.h"
 #include "types/promise.h"
 #include "types/type.h"
+#include "types/builtin_types.h"
 #include "utils/utils.h"
 #include "interpreter/attr.h"
 #include "interpreter/stack.h"
@@ -29,8 +31,9 @@ static Value run_async_task(AsyncTask *task)
     push_frame(&call_stack, frame);
     Value result = run_ast(fn->body, fn->body_count);
     pop_frame(&call_stack);
+    Value ret_val = clone_value(&result);
     env_release(env);
-    return result;
+    return ret_val;
 }
 
 Value interpreter_create_async_promise(Function *fn, Value *args, int arg_count, bool has_self, Value self, int line, int column)
@@ -55,8 +58,24 @@ Value interpreter_await(Value awaited, int line, int column)
             if (task)
             {
                 Value result = run_async_task(task);
-                promise_resolve(promise, result);
-                free_value(result);
+                if (result.type == VAL_PROMISE)
+                {
+                    if (result.promise == promise)
+                    {
+                        free_value(result);
+                        async_task_free(task);
+                        free_value(current);
+                        log_script_error(line, column, "Promise resolved with itself");
+                        exit(1);
+                    }
+                    Value resolved = interpreter_await(result, line, column);
+                    free_value(result);
+                    promise_resolve_owned(promise, resolved);
+                }
+                else
+                {
+                    promise_resolve_owned(promise, result);
+                }
                 async_task_free(task);
                 state = promise_state(promise);
             }
@@ -131,6 +150,26 @@ Value interpreter_call_value(Value callee, Value *args, int arg_count, int line,
     if (callee.type == VAL_TYPE && promise_type_is_namespace(callee.cls))
     {
         log_script_error(line, column, "Promise cannot be instantiated directly");
+        exit(1);
+    }
+    if (callee.type == VAL_TYPE && builtin_type_is_number(callee.cls))
+    {
+        if (arg_count > 1)
+        {
+            log_script_error(line, column, "Number() expects zero or one argument");
+            exit(1);
+        }
+        if (arg_count == 0)
+        {
+            Number *num = number_from_int(0);
+            return (Value){.type = VAL_NUMBER, .number = num};
+        }
+        Number *num = number_from_value(args[0], line, column);
+        return (Value){.type = VAL_NUMBER, .number = num};
+    }
+    if (callee.type == VAL_TYPE && builtin_type_is_namespace(callee.cls))
+    {
+        log_script_error(line, column, "Type '%s' cannot be instantiated", callee.cls && callee.cls->name ? callee.cls->name : "?");
         exit(1);
     }
     if (callee.type == VAL_TYPE)

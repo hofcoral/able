@@ -81,6 +81,22 @@ void promise_resolve(Promise *promise, Value value)
 {
     if (!promise)
         return;
+    Value owned = clone_value(&value);
+    promise_resolve_owned(promise, owned);
+}
+
+void promise_reject(Promise *promise, Value reason)
+{
+    if (!promise)
+        return;
+    Value owned = clone_value(&reason);
+    promise_reject_owned(promise, owned);
+}
+
+void promise_resolve_owned(Promise *promise, Value value)
+{
+    if (!promise)
+        return;
     if (promise->result.type != VAL_UNDEFINED)
         free_value(promise->result);
     if (promise->reason.type != VAL_UNDEFINED)
@@ -88,11 +104,16 @@ void promise_resolve(Promise *promise, Value value)
         free_value(promise->reason);
         promise->reason.type = VAL_UNDEFINED;
     }
-    promise->result = clone_value(&value);
+    if (promise->task)
+    {
+        async_task_free(promise->task);
+        promise->task = NULL;
+    }
+    promise->result = value;
     promise->state = PROMISE_FULFILLED;
 }
 
-void promise_reject(Promise *promise, Value reason)
+void promise_reject_owned(Promise *promise, Value reason)
 {
     if (!promise)
         return;
@@ -103,7 +124,12 @@ void promise_reject(Promise *promise, Value reason)
         free_value(promise->result);
         promise->result.type = VAL_UNDEFINED;
     }
-    promise->reason = clone_value(&reason);
+    if (promise->task)
+    {
+        async_task_free(promise->task);
+        promise->task = NULL;
+    }
+    promise->reason = reason;
     promise->state = PROMISE_REJECTED;
 }
 

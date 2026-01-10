@@ -1,2 +1,2 @@
 fun f(): return
-pr(type(f))
+pr(f is Function)

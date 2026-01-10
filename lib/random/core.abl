@@ -19,7 +19,7 @@ class Random():
         return this.next_num() / RAND_MOD
 
     fun randint(this, lo, hi):
-        if not (type(lo) == "NUMBER") or not (type(hi) == "NUMBER"):
+        if not (lo is Number) or not (hi is Number):
             return null
         if hi < lo:
             return null
@@ -28,16 +28,16 @@ class Random():
         return lo + this.next_num() % (hi - lo + 1)
 
     fun choice(this, seq):
-        if not (type(seq) == "LIST"):
+        if not (seq is List):
             return null
         if len(seq) == 0:
             return null
         return seq.get(this.randint(0, len(seq) - 1))
 
     fun sample(this, seq, k):
-        if not (type(seq) == "LIST"):
+        if not (seq is List):
             return null
-        if not (type(k) == "NUMBER"):
+        if not (k is Number):
             return null
         if k < 0 or k > len(seq):
             return null

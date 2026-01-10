@@ -1,0 +1,25 @@
+a = 0.1 + 0.2
+pr(a.to_string())
+pr(a.eq(0.3))
+sum = a.plus(0.4)
+pr(sum.to_string())
+
+b = 1.5
+pr(b.is_int())
+times_two = b.times(2)
+pr(times_two.to_fixed(0))
+half = b.div(2)
+pr(half.to_string())
+
+nine = 9
+root = nine.sqrt()
+pr(root.to_string())
+two_twenty_five = 2.25
+root2 = two_twenty_five.sqrt()
+pr(root2.to_string())
+five = 5
+modded = five.mod(2)
+pr(modded.to_string())
+num = 1.2345
+rounded = num.round(2)
+pr(rounded.to_string())

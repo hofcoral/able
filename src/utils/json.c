@@ -10,6 +10,7 @@
 
 #include "types/list.h"
 #include "types/object.h"
+#include "types/number.h"
 #include "types/value.h"
 
 typedef struct
@@ -175,9 +176,12 @@ static bool stringify_value(JsonBuffer *buffer, const Value *value, char **error
         return buffer_append_str(buffer, value->boolean ? "true" : "false");
     case VAL_NUMBER:
     {
-        char numbuf[64];
-        snprintf(numbuf, sizeof(numbuf), "%.15g", value->num);
-        return buffer_append_str(buffer, numbuf);
+        char *text = number_to_string(value->number);
+        if (!text)
+            return set_error(error, "Failed to stringify number");
+        bool ok = buffer_append_str(buffer, text);
+        free(text);
+        return ok;
     }
     case VAL_STRING:
         return append_escaped_string(buffer, value->str ? value->str : "");
@@ -497,20 +501,66 @@ static bool parse_literal(JsonParser *parser, const char *literal)
 
 static bool parse_number(JsonParser *parser, Value *out, char **error)
 {
-    const char *start = parser->text + parser->index;
-    char *endptr = NULL;
-    double value = strtod(start, &endptr);
-    if (endptr == start)
-        return set_error(error, "Invalid number at position %zu", parser->index);
+    size_t start_index = parser->index;
+    size_t i = parser->index;
+    const char *text = parser->text;
+    if (text[i] == '-')
+        i++;
 
-    parser->index = (size_t)(endptr - parser->text);
+    if (text[i] == '0')
+    {
+        i++;
+    }
+    else if (text[i] >= '1' && text[i] <= '9')
+    {
+        i++;
+        while (text[i] >= '0' && text[i] <= '9')
+            i++;
+    }
+    else
+    {
+        return set_error(error, "Invalid number at position %zu", parser->index);
+    }
+
+    if (text[i] == '.')
+    {
+        i++;
+        if (!(text[i] >= '0' && text[i] <= '9'))
+            return set_error(error, "Invalid number at position %zu", parser->index);
+        while (text[i] >= '0' && text[i] <= '9')
+            i++;
+    }
+
+    if (text[i] == 'e' || text[i] == 'E')
+    {
+        i++;
+        if (text[i] == '+' || text[i] == '-')
+            i++;
+        if (!(text[i] >= '0' && text[i] <= '9'))
+            return set_error(error, "Invalid number at position %zu", parser->index);
+        while (text[i] >= '0' && text[i] <= '9')
+            i++;
+    }
+
+    size_t len = i - start_index;
+    char *slice = malloc(len + 1);
+    if (!slice)
+        return set_error(error, "Out of memory");
+    memcpy(slice, text + start_index, len);
+    slice[len] = '\0';
+    Number *num = number_from_string(slice, 0, 0);
+    free(slice);
+    if (!num)
+        return set_error(error, "Invalid number at position %zu", start_index);
+
+    parser->index = i;
 
     char next = parser_peek(parser);
     if (!(next == '\0' || next == ',' || next == '}' || next == ']' || isspace((unsigned char)next)))
         return set_error(error, "Invalid character after number at position %zu", parser->index);
 
     out->type = VAL_NUMBER;
-    out->num = value;
+    out->number = num;
     return true;
 }
 

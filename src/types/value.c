@@ -5,6 +5,7 @@
 
 #include "types/value.h"
 #include "types/object.h"
+#include "types/number.h"
 #include "types/function.h"
 #include "types/list.h"
 #include "types/instance.h"
@@ -38,6 +39,9 @@ void free_value(Value v)
     {
     case VAL_STRING:
         free(v.str);
+        break;
+    case VAL_NUMBER:
+        number_free(v.number);
         break;
     case VAL_OBJECT:
         free_object(v.obj);
@@ -80,7 +84,7 @@ Value clone_value(const Value *src)
         copy.str = src->str ? strdup(src->str) : NULL;
         break;
     case VAL_NUMBER:
-        copy.num = src->num;
+        copy.number = number_clone(src->number);
         break;
     case VAL_OBJECT:
         copy.obj = clone_object(src->obj);
@@ -136,11 +140,19 @@ void print_value(Value v, int indent)
         break;
 
     case VAL_NUMBER:
-        if (fabs(v.num - (long long)v.num) < 1e-9)
-            printf("%lld", (long long)v.num);
+    {
+        char *text = number_to_string(v.number);
+        if (text)
+        {
+            printf("%s", text);
+            free(text);
+        }
         else
-            printf("%f", v.num);
+        {
+            printf("NaN");
+        }
         break;
+    }
 
     case VAL_BOOL:
         printf(v.boolean ? "true" : "false");

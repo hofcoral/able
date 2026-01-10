@@ -1,19 +1,18 @@
 from server.shared import normalize_path
 
 fun _is_decoratable(value):
-    t = type(value)
-    return t == "FUNCTION" or t == "TYPE"
+    return (value is Function) or (value is Type)
 
 fun _clone_list(items):
     cloned = []
-    if type(items) == "LIST":
+    if items is List:
         for entry of items:
             cloned.append(entry)
     return cloned
 
 fun _ensure_meta(target):
     meta = target.__abl_server_meta__
-    if type(meta) == "UNDEFINED" or meta == null:
+    if meta is Undefined or meta == null:
         meta = {}
     meta.routes = _clone_list(meta.routes)
     meta.middleware = _clone_list(meta.middleware)
@@ -32,8 +31,7 @@ fun _collect_middleware_entry(arg):
     collected = []
     if arg == null:
         return collected
-    entry_type = type(arg)
-    if entry_type == "LIST":
+    if arg is List:
         for item of arg:
             if item == null:
                 continue
@@ -70,7 +68,7 @@ fun _add_middleware(target, entries):
 
 fun _get_meta(target):
     meta = target.__abl_server_meta__
-    if type(meta) == "UNDEFINED":
+    if meta is Undefined:
         return null
     if meta == null:
         return null
@@ -81,7 +79,7 @@ fun _has_middleware_flag(target):
     if meta == null:
         return false
     flag = meta.is_middleware
-    if type(flag) == "BOOLEAN":
+    if flag is Boolean:
         return flag
     return false
 
@@ -151,7 +149,7 @@ fun _middleware_modifier(target, info):
     meta = _ensure_meta(target)
     meta.is_middleware = true
     name = info.name
-    if type(name) == "STRING":
+    if name is String:
         meta.name = name
     target.__abl_server_meta__ = meta
     return null
@@ -181,7 +179,7 @@ fun is_middleware(target):
     if meta == null:
         return false
     flag = meta.is_middleware
-    if type(flag) == "BOOLEAN":
+    if flag is Boolean:
         return flag
     return false
 
@@ -190,7 +188,7 @@ fun get_base_path(target):
     if meta == null:
         return null
     base = meta.base_path
-    if type(base) == "UNDEFINED" or base == null:
+    if base is Undefined or base == null:
         return null
     return base
 
